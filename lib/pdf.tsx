@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Link } from '@react-pdf/renderer';
-import { Report, ScoredBusiness } from '@/types';
+import { Report } from '@/types';
 import { getScoreLabel, getScoreColor } from '@/lib/scoring';
 import { metaAdsUrl } from '@/lib/ads';
 import { calcRevenueLoss } from '@/lib/revenue';
