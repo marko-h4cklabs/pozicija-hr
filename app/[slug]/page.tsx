@@ -4,7 +4,6 @@ import { Report } from '@/types';
 import Navbar from '@/components/Navbar';
 import ScoreBadge from '@/components/ScoreBadge';
 import ComparisonTable from '@/components/ComparisonTable';
-import InsightBlock from '@/components/InsightBlock';
 import AiAnalysis from '@/components/AiAnalysis';
 import IntroVideo from '@/components/IntroVideo';
 import RevenueGap from '@/components/RevenueGap';
@@ -75,11 +74,8 @@ export default async function ReportPage({ params, searchParams }: Props) {
             subject={subject}
             competitors={competitors}
             niche={report.business_niche}
+            aiAnalysis={aiAnalysis}
           />
-
-          <section>
-            <InsightBlock subject={subject} competitors={competitors} />
-          </section>
 
           {aiAnalysis && (
             <section>

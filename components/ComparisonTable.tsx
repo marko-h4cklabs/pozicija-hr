@@ -78,14 +78,14 @@ export default function ComparisonTable({ subject, competitors, metaAdsManual }:
               <span className="block text-xs text-slate-400 font-normal">ocjena × recenzije</span>
             </td>
             <td className={`px-4 py-3 text-center border-x-2 border-[#F97316] bg-orange-50 ${highlight(credibilities, 0)}`}>
-              <span className="font-semibold">{credibilities[0]}/70</span>
+              <span className="font-semibold">{credibilities[0]}/100</span>
               <span className="block text-xs text-slate-400">
                 {subject.rating?.toFixed(1) ?? 'N/A'} ★ · {subject.reviewCount ?? 0} rec.
               </span>
             </td>
             {competitors.map((c, i) => (
               <td key={i} className={`px-4 py-3 text-center ${highlight(credibilities, i + 1)}`}>
-                <span className="font-semibold">{credibilities[i + 1]}/70</span>
+                <span className="font-semibold">{credibilities[i + 1]}/100</span>
                 <span className="block text-xs text-slate-400">
                   {c.rating?.toFixed(1) ?? 'N/A'} ★ · {c.reviewCount ?? 0} rec.
                 </span>
@@ -125,11 +125,11 @@ export default function ComparisonTable({ subject, competitors, metaAdsManual }:
           <tr className="border-b-2 border-slate-200 bg-slate-50">
             <td className="px-4 py-3 text-slate-700 font-bold">Ukupni rezultat</td>
             <td className={`px-4 py-3 text-center border-x-2 border-b-2 border-[#F97316] bg-orange-50 font-bold text-base ${highlight(scores, 0)}`}>
-              {subject.totalScore}/70
+              {subject.totalScore}/100
             </td>
             {competitors.map((c, i) => (
               <td key={i} className={`px-4 py-3 text-center font-bold text-base ${highlight(scores, i + 1)}`}>
-                {c.totalScore}/70
+                {c.totalScore}/100
               </td>
             ))}
           </tr>

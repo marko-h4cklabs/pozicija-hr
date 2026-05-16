@@ -106,7 +106,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
       {/* Header */}
       <div className="bg-[#0F172A] px-6 py-4 flex items-center justify-between">
         <span className="text-white font-bold text-xl">
-          Pozicija<span className="text-[#F97316]">HR</span>{' '}
+          Analiziraj.com{' '}
           <span className="text-slate-400 font-normal text-sm">Admin</span>
         </span>
         <form action="/api/admin-logout" method="POST">

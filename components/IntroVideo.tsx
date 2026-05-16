@@ -23,12 +23,12 @@ export default function IntroVideo({ videoUrl }: Props) {
     <section className="bg-slate-900 rounded-2xl overflow-hidden shadow-lg">
       <div className="px-6 pt-6 pb-4">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Osobna poruka</p>
-        <h2 className="text-white font-bold text-lg leading-snug">Marko Srnec, osnivač PozicijaHR</h2>
+        <h2 className="text-white font-bold text-lg leading-snug">Marko Srnec, osnivač Analiziraj.com</h2>
       </div>
       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
         <iframe
           src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
-          title="Osobna poruka — Marko Srnec, osnivač PozicijaHR"
+          title="Osobna poruka — Marko Srnec, osnivač Analiziraj.com"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="absolute inset-0 w-full h-full"

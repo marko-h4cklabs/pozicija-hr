@@ -11,8 +11,7 @@ const C = {
   green: '#16a34a',
   red: '#dc2626',
   redLight: '#fca5a5',
-  amber50: '#fffbeb',
-  slate50: '#f8fafc',
+slate50: '#f8fafc',
   slate100: '#f1f5f9',
   slate200: '#e2e8f0',
   slate400: '#94a3b8',
@@ -31,17 +30,6 @@ function resolveScoreColor(score: number): string {
   return C.red;
 }
 
-function getInsightText(subject: ScoredBusiness, competitors: ScoredBusiness[]): string {
-  if (competitors.length === 0) return '';
-  const best = [...competitors].sort((a, b) => b.totalScore - a.totalScore)[0];
-  const reviewGap = (best.reviewCount ?? 0) - (subject.reviewCount ?? 0);
-  const ratingGap = (best.rating ?? 0) - (subject.rating ?? 0);
-  const worst = reviewGap >= ratingGap * 20 ? 'reviews' : 'rating';
-
-  if (worst === 'reviews')
-    return `Vaš vodeći konkurent ima ${reviewGap} recenzija više od vas — svaka recenzija je povjerenje koje gubite.`;
-  return `Vaša prosječna ocjena je niža od tvrtke ${best.name} — prvi dojam na Google-u je ključan.`;
-}
 
 function highlightColor(values: (number | null)[], idx: number): string | null {
   const nums = values.filter((v): v is number => v !== null);
@@ -121,10 +109,6 @@ const s = StyleSheet.create({
   colMetricHead: { width: 110, fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.slate600 },
   colSub: { fontSize: 7, color: C.slate400, textAlign: 'center', marginTop: 1 },
 
-  insightBox: { borderLeftWidth: 3, borderLeftColor: C.orange, backgroundColor: C.amber50, padding: 12, borderRadius: 3 },
-  insightEyebrow: { fontSize: 7, color: C.orange, fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 5 },
-  insightText: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: C.slate800, lineHeight: 1.5 },
-
   // Revenue gap section
   revenueBox: { backgroundColor: C.slate900, borderRadius: 5, overflow: 'hidden', marginBottom: 0 },
   revenueEyebrow: { color: '#f87171', fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
@@ -134,10 +118,6 @@ const s = StyleSheet.create({
   revenueCellLast: { flex: 1, backgroundColor: C.slate800, padding: 10 },
   revenueCellLabel: { color: C.slate400, fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 4 },
   revenueAmount: { fontSize: 18, fontFamily: 'Helvetica-Bold' },
-  revenueFooter: { backgroundColor: '#450a0a', paddingVertical: 7, paddingHorizontal: 10 },
-  revenueFooterText: { color: '#fca5a5', fontSize: 8.5, textAlign: 'center' },
-  revenueFooterBold: { color: C.white, fontFamily: 'Helvetica-Bold' },
-
   // AI Analysis
   aiBox: { borderWidth: 2, borderColor: C.slate200, borderRadius: 5 },
   aiHeader: { backgroundColor: C.dark, paddingVertical: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
@@ -165,7 +145,6 @@ export function ReportPDF({ report }: Props) {
   const all = [subject, ...competitors];
   const color = resolveScoreColor(subject.totalScore);
   const label = getScoreLabel(subject.totalScore);
-  const insight = getInsightText(subject, competitors);
   const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '385992532420';
 
   const credibilities = all.map((b) => b.credibilityScore ?? (b.reviewsScore + b.ratingScore));
@@ -173,7 +152,7 @@ export function ReportPDF({ report }: Props) {
 
   const hasAdsData = all.some((b) => b.hasGoogleAds !== undefined);
 
-  const { monthlyLoss, annualLoss, dailyCost } = calcRevenueLoss(
+  const { monthlyLoss, annualLoss } = calcRevenueLoss(
     subject,
     competitors,
     report.report_data.businessNiche
@@ -223,7 +202,7 @@ export function ReportPDF({ report }: Props) {
           <View style={[s.scoreCircle, { borderColor: color }]}>
             <Text style={[s.scoreNum, { color }]}>{subject.totalScore}</Text>
           </View>
-          <Text style={s.scoreOf}>od 70 bodova</Text>
+          <Text style={s.scoreOf}>od 100 bodova</Text>
           <Text style={[s.scoreLabel, { color }]}>{label}</Text>
         </View>
 
@@ -249,14 +228,14 @@ export function ReportPDF({ report }: Props) {
                   <Text style={s.colMetricSub}>ocjena × recenzije</Text>
                 </View>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                  {tableCell(`${credibilities[0]}/70`, credibilities, 0, true)}
+                  {tableCell(`${credibilities[0]}/100`, credibilities, 0, true)}
                   <Text style={s.colSub}>
                     {subject.rating?.toFixed(1) ?? 'N/A'} ★ · {subject.reviewCount ?? 0} rec.
                   </Text>
                 </View>
                 {competitors.map((c, i) => (
                   <View key={i} style={{ flex: 1, alignItems: 'center' }}>
-                    {tableCell(`${credibilities[i + 1]}/70`, credibilities, i + 1, false)}
+                    {tableCell(`${credibilities[i + 1]}/100`, credibilities, i + 1, false)}
                     <Text style={s.colSub}>
                       {c.rating?.toFixed(1) ?? 'N/A'} ★ · {c.reviewCount ?? 0} rec.
                     </Text>
@@ -286,9 +265,9 @@ export function ReportPDF({ report }: Props) {
 
               <View style={[s.tableRow, s.tableRowTotal]}>
                 <Text style={s.colMetricBold}>Ukupni rezultat</Text>
-                {tableCell(`${subject.totalScore}/70`, scores, 0, true)}
+                {tableCell(`${subject.totalScore}/100`, scores, 0, true)}
                 {competitors.map((c, i) =>
-                  tableCell(`${c.totalScore}/70`, scores, i + 1, false)
+                  tableCell(`${c.totalScore}/100`, scores, i + 1, false)
                 )}
               </View>
             </View>
@@ -316,25 +295,8 @@ export function ReportPDF({ report }: Props) {
                   </Text>
                 </View>
               </View>
-              <View style={s.revenueFooter}>
-                <Text style={s.revenueFooterText}>
-                  Svaki dan bez akcije košta vas{' '}
-                  <Text style={s.revenueFooterBold}>{dailyCost} EUR</Text>
-                </Text>
-              </View>
             </View>
           </View>
-
-          {/* Key Insight */}
-          {insight ? (
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>Ključni uvid</Text>
-              <View style={s.insightBox}>
-                <Text style={s.insightEyebrow}>KLJUČNI UVID</Text>
-                <Text style={s.insightText}>{insight}</Text>
-              </View>
-            </View>
-          ) : null}
 
           {/* Analysis */}
           {aiSections.length > 0 && (
@@ -369,7 +331,7 @@ export function ReportPDF({ report }: Props) {
         </View>
 
         <Text style={s.footerNote}>
-          Generirano: {now} · pozicija-hr.com
+          Generirano: {now} · analiziraj.com
         </Text>
 
       </Page>

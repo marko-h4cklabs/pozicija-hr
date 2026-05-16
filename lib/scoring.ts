@@ -7,7 +7,7 @@ export function calcCredibilityScore(rating: number | null, reviewCount: number 
   else if (count >= 30) multiplier = 0.7;
   else if (count >= 10) multiplier = 0.5;
   else multiplier = 0.3;
-  return Math.round((rating / 5.0) * 70 * multiplier);
+  return Math.round((rating / 5.0) * 100 * multiplier);
 }
 
 // Kept for backward compat — not used in new report generation
@@ -29,16 +29,15 @@ export function calcRatingScore(rating: number | null): number {
   return 5;
 }
 
-// Thresholds scaled proportionally from /100 to /70 max
 export function getScoreLabel(score: number): string {
-  if (score >= 57) return 'Iznad prosjeka — ali prilike prolaze';
-  if (score >= 46) return 'Osrednje — postoji ozbiljan prostor za poboljšanje';
-  if (score >= 29) return 'Ispod prosjeka — konkurencija vas aktivno preuzima';
+  if (score >= 81) return 'Iznad prosjeka — ali prilike prolaze';
+  if (score >= 66) return 'Osrednje — postoji ozbiljan prostor za poboljšanje';
+  if (score >= 41) return 'Ispod prosjeka — konkurencija vas aktivno preuzima';
   return 'Kritično — gubite klijente svaki dan';
 }
 
 export function getScoreColor(score: number): string {
-  if (score >= 46) return 'green';
-  if (score >= 29) return 'orange';
+  if (score >= 66) return 'green';
+  if (score >= 41) return 'orange';
   return 'red';
 }
