@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Module-level dedup: slug → timestamp of last Telegram notification sent.
-const lastNotified = new Map<string, number>();
-const NOTIFY_DEBOUNCE_MS = 5_000;
+const TELEGRAM_DEBOUNCE_SECONDS = 60;
 
 export async function GET(
   _req: NextRequest,
@@ -14,7 +12,7 @@ export async function GET(
 
   const { data: report, error: fetchError } = await supabaseAdmin
     .from('reports')
-    .select('id, business_name, business_city, open_count, opened_at, slug, status')
+    .select('id, business_name, business_city, open_count, opened_at, last_telegram_at, slug, status')
     .eq('slug', slug)
     .single();
 
@@ -22,10 +20,6 @@ export async function GET(
     console.warn(`[track-open] report NOT found for slug="${slug}"`, fetchError?.message ?? '');
     return NextResponse.json({ error: 'Izvještaj nije pronađen.' }, { status: 404 });
   }
-
-  console.log(
-    `[track-open] found report id=${report.id} name="${report.business_name}" status="${report.status}"`
-  );
 
   const newCount = (report.open_count ?? 0) + 1;
 
@@ -40,20 +34,27 @@ export async function GET(
   if (updateError) {
     console.error(`[track-open] update failed:`, updateError.message);
   } else {
-    console.log(`[track-open] open_count updated to ${newCount}`);
+    console.log(`[track-open] open_count updated to ${newCount} for "${report.business_name}"`);
   }
 
-  // Telegram notification — non-blocking, debounced
-  const now = Date.now();
-  const prev = lastNotified.get(slug) ?? 0;
-  if (now - prev > NOTIFY_DEBOUNCE_MS) {
-    lastNotified.set(slug, now);
+  // Telegram — only send if last_telegram_at is null or older than 60 seconds
+  const now = new Date();
+  const lastSent = report.last_telegram_at ? new Date(report.last_telegram_at) : null;
+  const secondsSinceLast = lastSent ? (now.getTime() - lastSent.getTime()) / 1000 : Infinity;
+
+  if (secondsSinceLast > TELEGRAM_DEBOUNCE_SECONDS) {
     console.log(`[track-open] sending Telegram for "${report.business_name}" (count=${newCount})`);
+
+    await supabaseAdmin
+      .from('reports')
+      .update({ last_telegram_at: now.toISOString() })
+      .eq('id', report.id);
+
     sendTelegramNotification(report.business_name, report.business_city, slug, newCount).catch(
       (e) => console.error('[track-open] Telegram failed:', e)
     );
   } else {
-    console.log(`[track-open] Telegram skipped (debounce)`);
+    console.log(`[track-open] Telegram skipped — sent ${Math.round(secondsSinceLast)}s ago`);
   }
 
   return NextResponse.json({ success: true });
