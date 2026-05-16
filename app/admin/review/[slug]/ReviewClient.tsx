@@ -215,7 +215,7 @@ export default function ReviewClient({ report }: Props) {
           <div className="mt-3 px-4 py-3 bg-slate-50 rounded-lg border border-slate-100">
             <p className="text-xs text-slate-400 mb-0.5">Pregled linka:</p>
             <p className="text-sm font-mono text-slate-700 break-all">
-              {DOMAIN}/izvjestaj/
+              {DOMAIN}/
               <span className="text-[#F97316] font-bold">{customSlug || '...'}</span>
             </p>
           </div>

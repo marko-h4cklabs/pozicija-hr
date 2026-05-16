@@ -48,27 +48,33 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
   );
 
   const prompt =
-    `You are an aggressive digital marketing analyst. Your job is to create FOMO and urgency. ` +
-    `Data:\n\n${dataJson}\n\n` +
-    `Write in Croatian. NEVER mention specific budget amounts or ad spend. ` +
-    `Use statistics, competitor comparisons, and loss framing.\n\n` +
-    `Use EXACTLY these section headings on their own lines:\n\n` +
+    `Ti si iskusni konzultant za digitalni marketing koji je upravo završio analizu za klijenta. ` +
+    `Pišeš osobno, kao da sjediš nasuprot njima uz kavu i daješ im iskrenu procjenu. ` +
+    `Podaci koje si prikupio:\n\n${dataJson}\n\n` +
+    `PRAVILA PISANJA (strogo ih se drži):\n` +
+    `- Piši na hrvatskom jeziku\n` +
+    `- Piši u prvom licu množine: "Primijetili smo...", "Naša analiza pokazuje...", "Prema podacima koje smo prikupili...", "Kada smo usporedili..."\n` +
+    `- NIKADA ne koristiti bullet pointove, crtice (- ili *) ili simbole (•) za nabrajanje. Sve piši kao tekuće rečenice.\n` +
+    `- NIKADA ne koristiti dvostruke crtice (--)\n` +
+    `- NIKADA ne koristiti riječi: optimizirati, implementirati, leveragirati, maksimizirati, skalirati\n` +
+    `- Bez korporativnog žargona. Konverzacijski, direktan, human ton.\n` +
+    `- Uvijek koristi stvarne brojeve iz podataka i stvarna imena konkurenata\n` +
+    `- Maksimalno 3 rečenice po sekciji. Direktno i konkretno.\n` +
+    `- Ton: pametni prijatelj koji se razumije u marketing, ne prodajni pitch\n` +
+    `- NIKADA ne spominji iznose za oglašavanje ili budžete\n\n` +
+    `Napiši analizu s TOČNO ovim naslovima sekcija (naslov na zasebnom retku, iza kojeg slijedi tekst):\n\n` +
     `NAJVEĆE PRILIKE\n` +
-    `3 specific opportunities with statistics. Use patterns like: ` +
-    `'Dentalne klinike koje aktivno prikupljaju recenzije rastu 3x brže od konkurencije — vaši konkurenti to rade, vi ne.' ` +
-    `or 'X% pacijenata/klijenata čita recenzije prije prve posjete — vi im ne dajete razlog da odaberu vas.' ` +
-    `Use their actual competitor names and real numbers from the data.\n\n` +
+    `Što konkretno propuštaju, uz statistike i usporedbu s imenovanim konkurentima. ` +
+    `Primjer tona: "Primijetili smo da [konkurent] ima X recenzija u usporedbi s vašim Y, a istraživanja pokazuju da 88% korisnika čita recenzije prije prve posjete." ` +
+    `Napiši 2-3 rečenice o najvažnijim prilikama, sve u tekućem tekstu.\n\n` +
     `PROCJENA IZGUBLJENOG PRIHODA\n` +
-    `Give a specific monthly EUR range they are losing based on their niche and performance gap. ` +
-    `Be specific and alarming. Say: 'Procjenjujemo da [name] mjesečno propušta između X.000 i Y.000 EUR novih prihoda zbog slabe digitalne prisutnosti.' ` +
-    `Then: 'U godinu dana, to je između X EUR i Y EUR koje odlaze direktno konkurenciji.'\n\n` +
+    `Počni s "Prema našoj analizi, [naziv tvrtke]...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
+    `bazirano na razlici u rezultatima i industriji. 2 rečenice.\n\n` +
     `ŠTO BI ODMAH TREBALI NAPRAVITI\n` +
-    `3 specific actions ranked by impact. Never mention budgets or specific spend amounts. ` +
-    `Focus on what to do, not how much to spend. ` +
-    `Use urgency: 'Svaki tjedan čekanja znači X novih recenzija koje vaši konkurenti skupljaju bez vas.'\n\n` +
+    `Tri konkretna koraka po prioritetu, u tekućem tekstu (bez nabrajanja). ` +
+    `Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.\n\n` +
     `RIZIK NEAKCIJE\n` +
-    `1-2 sentences. Make it alarming with a specific timeframe: 'Ako se ništa ne promijeni u sljedećih 90 dana...' ` +
-    `Use their actual competitor names.`;
+    `Jedna do dvije rečenice. Počni s "Ako se ništa ne promijeni u sljedećih 90 dana..." i navedni stvarnog konkurenta.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {

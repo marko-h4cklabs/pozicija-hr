@@ -47,7 +47,7 @@ export default async function ReportPage({ params }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Always track by internal slug regardless of URL used */}
+      {/* Always track by internal slug regardless of which URL was used */}
       <TrackOpen slug={report.slug} />
       <Navbar />
 

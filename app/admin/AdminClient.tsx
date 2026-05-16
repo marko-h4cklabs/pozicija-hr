@@ -91,7 +91,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
   function copyLink(slug: string, customSlug?: string | null) {
     const path = customSlug ?? slug;
-    navigator.clipboard.writeText(`${BASE_URL}/izvjestaj/${path}`);
+    navigator.clipboard.writeText(`${BASE_URL}/${path}`);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(''), 2000);
   }
