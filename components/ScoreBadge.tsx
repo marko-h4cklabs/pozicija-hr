@@ -25,11 +25,11 @@ function pt(deg: number, r: number) {
   return { x: CX + r * Math.cos(rad), y: CY - r * Math.sin(rad) };
 }
 
-// sweep-flag 0 = counter-clockwise in SVG → traces the top semicircle left→right
+// sweep-flag 1 = clockwise in SVG (Y-down) → traces the TOP semicircle left→right
 function arcD(fromScore: number, toScore: number, r: number): string {
   const s = pt(scoreToAngle(fromScore), r);
   const e = pt(scoreToAngle(toScore), r);
-  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 0 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
 function labelColor(score: number): string {
