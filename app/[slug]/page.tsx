@@ -13,6 +13,7 @@ import Footer from '@/components/Footer';
 
 interface Props {
   params: { slug: string };
+  searchParams: { preview?: string };
 }
 
 async function getPublishedReport(slug: string): Promise<Report | null> {
@@ -90,12 +91,13 @@ async function trackOpen(report: Report) {
   );
 }
 
-export default async function ReportPage({ params }: Props) {
+export default async function ReportPage({ params, searchParams }: Props) {
   const report = await getPublishedReport(params.slug);
   if (!report) return notFound();
 
-  // Track this page open server-side on every render
-  await trackOpen(report);
+  if (searchParams.preview !== '1') {
+    await trackOpen(report);
+  }
 
   const { subject, competitors, aiAnalysis } = report.report_data;
   const introVideoUrl = process.env.NEXT_PUBLIC_INTRO_VIDEO_URL;

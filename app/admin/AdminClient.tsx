@@ -317,16 +317,26 @@ export default function AdminClient({ reports, justPublished }: Props) {
                                 Pregledaj →
                               </a>
                             ) : (
-                              <button
-                                onClick={() => copyLink(r.slug, r.custom_slug)}
-                                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                                  copiedSlug === r.slug
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-orange-50 text-[#F97316] hover:bg-orange-100'
-                                }`}
-                              >
-                                {copiedSlug === r.slug ? 'Kopirano!' : 'Kopiraj link'}
-                              </button>
+                              <>
+                                <a
+                                  href={`/${r.custom_slug ?? r.slug}?preview=1`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors whitespace-nowrap"
+                                >
+                                  Pregledaj →
+                                </a>
+                                <button
+                                  onClick={() => copyLink(r.slug, r.custom_slug)}
+                                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                                    copiedSlug === r.slug
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-orange-50 text-[#F97316] hover:bg-orange-100'
+                                  }`}
+                                >
+                                  {copiedSlug === r.slug ? 'Kopirano!' : 'Kopiraj link'}
+                                </button>
+                              </>
                             )}
                             <a
                               href={`/api/generate-pdf/${r.slug}`}
