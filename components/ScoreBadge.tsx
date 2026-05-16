@@ -5,142 +5,178 @@ interface Props {
   score: number;
 }
 
-// --- Gauge geometry constants ---
-const CX = 150;   // SVG center x
-const CY = 145;   // SVG center y (pivot point)
-const R = 110;    // arc radius (centerline of stroke)
-const TRACK_W = 16;
-const NEEDLE_LEN = 94;
-const R_LABEL = 132; // radius for scale labels
+const CX = 150;
+const CY = 140;   // pivot / arc baseline
+const R  = 112;   // arc radius
+const NEEDLE_LEN  = 97;
+const NEEDLE_TAIL = 14;
 
-const ZONES = [
-  { from: 0,  to: 40,  color: '#ef4444' },  // red
-  { from: 40, to: 65,  color: '#f97316' },  // orange
-  { from: 65, to: 80,  color: '#86efac' },  // light green
-  { from: 80, to: 100, color: '#22c55e' },  // green
-];
+// Gradient x-extent matches arc endpoints exactly
+const GRAD_X1 = CX - R;  // 38  (score 0, left)
+const GRAD_X2 = CX + R;  // 262 (score 100, right)
 
-// Score 0 → 180° (left), score 100 → 0° (right), standard math angles
+// score 0 → 180° (left), score 100 → 0° (right), standard math convention
 function scoreToAngle(s: number): number {
   return 180 - s * 1.8;
 }
 
-function pt(angleDeg: number, r: number): { x: number; y: number } {
-  const rad = (angleDeg * Math.PI) / 180;
+function pt(deg: number, r: number) {
+  const rad = (deg * Math.PI) / 180;
   return { x: CX + r * Math.cos(rad), y: CY - r * Math.sin(rad) };
 }
 
-// Counter-clockwise in SVG (sweep=0) traces the top arc from left to right
-function arc(fromScore: number, toScore: number, r: number): string {
+// sweep-flag 0 = counter-clockwise in SVG → traces the top semicircle left→right
+function arcD(fromScore: number, toScore: number, r: number): string {
   const s = pt(scoreToAngle(fromScore), r);
   const e = pt(scoreToAngle(toScore), r);
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 0 0 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
-const SCALE_MARKS = [0, 25, 50, 75, 100];
-
 function labelColor(score: number): string {
   if (score >= 81) return '#22c55e';
-  if (score >= 66) return '#86efac';
+  if (score >= 66) return '#4ade80';
   if (score >= 41) return '#f97316';
   return '#ef4444';
 }
 
 export default function ScoreBadge({ businessName, score }: Props) {
-  const label = getScoreLabel(score);
+  const label   = getScoreLabel(score);
   const clamped = Math.max(0, Math.min(100, score));
-  const needleTip = pt(scoreToAngle(clamped), NEEDLE_LEN);
-  const color = labelColor(clamped);
+  const tip     = pt(scoreToAngle(clamped), NEEDLE_LEN);
+  const tail    = pt(scoreToAngle(clamped) + 180, NEEDLE_TAIL);
+  const color   = labelColor(clamped);
+  const fullArc = arcD(0, 100, R);
 
   return (
     <div className="bg-[#0F172A] py-10 px-6 text-center">
       <h1 className="text-white text-3xl sm:text-4xl font-bold mb-4">{businessName}</h1>
 
       <div className="w-full max-w-xs sm:max-w-sm mx-auto">
-        <svg viewBox="0 0 300 185" className="w-full" aria-label={`Rezultat: ${score} od 100`}>
+        <svg
+          viewBox="0 0 300 188"
+          className="w-full"
+          style={{ overflow: 'visible' }}
+          aria-label={`Rezultat: ${score} od 100`}
+        >
+          <defs>
+            {/*
+              Horizontal gradient whose x-extent matches the arc endpoints.
+              Because the arc is a perfect semicircle, a horizontal gradient
+              maps linearly to score position.
+            */}
+            <linearGradient
+              id="arcGrad"
+              x1={GRAD_X1}
+              y1="0"
+              x2={GRAD_X2}
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%"   stopColor="#ef4444" />
+              <stop offset="38%"  stopColor="#f97316" />
+              <stop offset="62%"  stopColor="#facc15" />
+              <stop offset="78%"  stopColor="#4ade80" />
+              <stop offset="100%" stopColor="#22c55e" />
+            </linearGradient>
 
-          {/* Dark background track */}
+            {/* Glow: blur the arc and composite the sharp arc on top */}
+            <filter id="arcGlow" x="-8%" y="-60%" width="116%" height="220%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            {/* Subtle needle glow */}
+            <filter id="needleGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* ── Track (dark channel behind the arc) ──────────────────── */}
           <path
-            d={arc(0, 100, R)}
+            d={fullArc}
             fill="none"
-            stroke="#1e293b"
-            strokeWidth={TRACK_W + 2}
+            stroke="#0f2236"
+            strokeWidth="9"
+            strokeLinecap="butt"
+          />
+          {/* Inner dark ring to deepen the channel */}
+          <path
+            d={fullArc}
+            fill="none"
+            stroke="#162032"
+            strokeWidth="6"
             strokeLinecap="butt"
           />
 
-          {/* Colored zone arcs */}
-          {ZONES.map(({ from, to, color: c }) => (
-            <path
-              key={from}
-              d={arc(from, to, R)}
-              fill="none"
-              stroke={c}
-              strokeWidth={TRACK_W}
-              strokeLinecap="butt"
-            />
-          ))}
-
-          {/* Scale labels */}
-          {SCALE_MARKS.map((s) => {
-            const pos = pt(scoreToAngle(s), R_LABEL);
-            return (
-              <text
-                key={s}
-                x={pos.x.toFixed(2)}
-                y={pos.y.toFixed(2)}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#475569"
-                fontSize="9"
-                fontFamily="Helvetica, Arial, sans-serif"
-              >
-                {s}
-              </text>
-            );
-          })}
-
-          {/* Needle */}
-          <line
-            x1={CX}
-            y1={CY}
-            x2={needleTip.x.toFixed(2)}
-            y2={needleTip.y.toFixed(2)}
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
+          {/* ── Gradient arc with glow ───────────────────────────────── */}
+          <path
+            d={fullArc}
+            fill="none"
+            stroke="url(#arcGrad)"
+            strokeWidth="4.5"
+            strokeLinecap="butt"
+            filter="url(#arcGlow)"
           />
 
-          {/* Pivot: white ring with dark centre */}
-          <circle cx={CX} cy={CY} r="6" fill="white" />
-          <circle cx={CX} cy={CY} r="3" fill="#0F172A" />
+          {/* ── Needle ──────────────────────────────────────────────── */}
+          {/* Tail (opposite side of pivot, subtle) */}
+          <line
+            x1={CX} y1={CY}
+            x2={tail.x.toFixed(2)} y2={tail.y.toFixed(2)}
+            stroke="#334155"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          {/* Main needle with subtle glow */}
+          <line
+            x1={CX} y1={CY}
+            x2={tip.x.toFixed(2)} y2={tip.y.toFixed(2)}
+            stroke="white"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            filter="url(#needleGlow)"
+          />
 
-          {/* Score number */}
+          {/* ── Pivot ───────────────────────────────────────────────── */}
+          <circle cx={CX} cy={CY} r="5.5" fill="#1e293b" />
+          <circle cx={CX} cy={CY} r="3"   fill="#94a3b8" />
+          <circle cx={CX} cy={CY} r="1.5" fill="#cbd5e1" />
+
+          {/* ── Score number ────────────────────────────────────────── */}
           <text
             x={CX}
-            y={CY + 18}
+            y={CY + 22}
             textAnchor="middle"
-            dominantBaseline="hanging"
+            dominantBaseline="middle"
             fill="white"
-            fontSize="32"
-            fontFamily="Helvetica, Arial, sans-serif"
-            fontWeight="bold"
+            fontSize="36"
+            fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif"
+            fontWeight="700"
+            letterSpacing="-1"
           >
             {score}
           </text>
 
-          {/* "od 100 bodova" */}
+          {/* ── "od 100 bodova" ──────────────────────────────────────── */}
           <text
             x={CX}
-            y={CY + 53}
+            y={CY + 42}
             textAnchor="middle"
-            dominantBaseline="hanging"
-            fill="#64748b"
+            dominantBaseline="middle"
+            fill="#475569"
             fontSize="9"
-            fontFamily="Helvetica, Arial, sans-serif"
+            fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif"
+            letterSpacing="0.5"
           >
             od 100 bodova
           </text>
-
         </svg>
       </div>
 
