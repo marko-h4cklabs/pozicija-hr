@@ -47,16 +47,16 @@ export default function CategoryCards({ subject, allBusinesses }: Props) {
       {/* Card 2 */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
         <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">
-          Brzina web stranice
+          Kredibilitet
         </p>
         <p className="text-3xl font-black text-slate-800">
-          {subject.speedPoints}
-          <span className="text-base font-normal text-slate-400">/30</span>
+          {subject.credibilityScore}
+          <span className="text-base font-normal text-slate-400">/70</span>
         </p>
-        {scoreBar(subject.speedPoints, 30)}
+        {scoreBar(subject.credibilityScore, 70)}
         <p className="text-slate-500 text-sm mt-3">
-          PageSpeed ocjena:{' '}
-          {subject.speedScore !== null ? `${subject.speedScore}/100` : 'N/A'}
+          {subject.reviewCount ?? 0} recenzija · ocjena{' '}
+          {subject.rating !== null ? subject.rating.toFixed(1) : 'N/A'}
         </p>
       </div>
 
@@ -76,7 +76,7 @@ export default function CategoryCards({ subject, allBusinesses }: Props) {
           />
         </div>
         <p className="text-slate-500 text-sm mt-3">
-          Ukupni rezultat: {subject.totalScore}/100
+          Ukupni rezultat: {subject.totalScore}/70
         </p>
       </div>
     </div>

@@ -29,32 +29,16 @@ export function calcRatingScore(rating: number | null): number {
   return 5;
 }
 
-export function calcSpeedScore(pageSpeed: number | null): number {
-  if (pageSpeed === null) return 0;
-  if (pageSpeed >= 90) return 30;
-  if (pageSpeed >= 70) return 26;
-  if (pageSpeed >= 50) return 20;
-  if (pageSpeed >= 30) return 12;
-  return 5;
-}
-
-export function calcTotalScore(
-  reviewsScore: number,
-  ratingScore: number,
-  speedPoints: number
-): number {
-  return reviewsScore + ratingScore + speedPoints;
-}
-
+// Thresholds scaled proportionally from /100 to /70 max
 export function getScoreLabel(score: number): string {
-  if (score >= 81) return 'Iznad prosjeka — ali prilike prolaze';
-  if (score >= 66) return 'Osrednje — postoji ozbiljan prostor za poboljšanje';
-  if (score >= 41) return 'Ispod prosjeka — konkurencija vas aktivno preuzima';
+  if (score >= 57) return 'Iznad prosjeka — ali prilike prolaze';
+  if (score >= 46) return 'Osrednje — postoji ozbiljan prostor za poboljšanje';
+  if (score >= 29) return 'Ispod prosjeka — konkurencija vas aktivno preuzima';
   return 'Kritično — gubite klijente svaki dan';
 }
 
 export function getScoreColor(score: number): string {
-  if (score >= 66) return 'green';
-  if (score >= 41) return 'orange';
+  if (score >= 46) return 'green';
+  if (score >= 29) return 'orange';
   return 'red';
 }

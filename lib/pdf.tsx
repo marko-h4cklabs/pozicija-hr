@@ -36,17 +36,10 @@ function getInsightText(subject: ScoredBusiness, competitors: ScoredBusiness[]):
   const best = [...competitors].sort((a, b) => b.totalScore - a.totalScore)[0];
   const reviewGap = (best.reviewCount ?? 0) - (subject.reviewCount ?? 0);
   const ratingGap = (best.rating ?? 0) - (subject.rating ?? 0);
-  const speedGap = (best.speedScore ?? 0) - (subject.speedScore ?? 0);
-  const worst = [
-    { key: 'reviews', gap: reviewGap },
-    { key: 'rating', gap: ratingGap * 20 },
-    { key: 'speed', gap: speedGap },
-  ].sort((a, b) => b.gap - a.gap)[0].key;
+  const worst = reviewGap >= ratingGap * 20 ? 'reviews' : 'rating';
 
   if (worst === 'reviews')
     return `Vaš vodeći konkurent ima ${reviewGap} recenzija više od vas — svaka recenzija je povjerenje koje gubite.`;
-  if (worst === 'speed')
-    return `Vaša web stranica učitava se sporije od konkurencije — posjetitelji odlaze prije nego vide vašu ponudu.`;
   return `Vaša prosječna ocjena je niža od tvrtke ${best.name} — prvi dojam na Google-u je ključan.`;
 }
 
@@ -176,7 +169,6 @@ export function ReportPDF({ report }: Props) {
   const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '385992532420';
 
   const credibilities = all.map((b) => b.credibilityScore ?? (b.reviewsScore + b.ratingScore));
-  const speeds = all.map((b) => b.speedScore);
   const scores = all.map((b) => b.totalScore);
 
   const hasAdsData = all.some((b) => b.hasGoogleAds !== undefined);
@@ -231,7 +223,7 @@ export function ReportPDF({ report }: Props) {
           <View style={[s.scoreCircle, { borderColor: color }]}>
             <Text style={[s.scoreNum, { color }]}>{subject.totalScore}</Text>
           </View>
-          <Text style={s.scoreOf}>od 100 bodova</Text>
+          <Text style={s.scoreOf}>od 70 bodova</Text>
           <Text style={[s.scoreLabel, { color }]}>{label}</Text>
         </View>
 
@@ -272,14 +264,6 @@ export function ReportPDF({ report }: Props) {
                 ))}
               </View>
 
-              <View style={[s.tableRow, s.tableRowAlt]}>
-                <Text style={s.colMetric}>Brzina web stranice</Text>
-                {tableCell(subject.speedScore !== null ? `${subject.speedScore}/100` : 'N/A', speeds, 0, true)}
-                {competitors.map((c, i) =>
-                  tableCell(c.speedScore !== null ? `${c.speedScore}/100` : 'N/A', speeds, i + 1, false)
-                )}
-              </View>
-
               {/* Meta Ads — always show as a clickable link */}
               <View style={s.tableRow}>
                 <Text style={s.colMetric}>Meta oglasi</Text>
@@ -302,9 +286,9 @@ export function ReportPDF({ report }: Props) {
 
               <View style={[s.tableRow, s.tableRowTotal]}>
                 <Text style={s.colMetricBold}>Ukupni rezultat</Text>
-                {tableCell(`${subject.totalScore}/100`, scores, 0, true)}
+                {tableCell(`${subject.totalScore}/70`, scores, 0, true)}
                 {competitors.map((c, i) =>
-                  tableCell(`${c.totalScore}/100`, scores, i + 1, false)
+                  tableCell(`${c.totalScore}/70`, scores, i + 1, false)
                 )}
               </View>
             </View>

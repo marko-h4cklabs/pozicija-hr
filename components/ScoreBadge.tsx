@@ -31,7 +31,7 @@ export default function ScoreBadge({ businessName, score }: Props) {
       >
         <span className={`text-5xl font-black ${ringColor.split(' ')[1]}`}>{score}</span>
       </div>
-      <p className="text-slate-400 text-sm mb-2">od 100 bodova</p>
+      <p className="text-slate-400 text-sm mb-2">od 70 bodova</p>
       <p
         className={`font-semibold text-lg ${
           color === 'green'

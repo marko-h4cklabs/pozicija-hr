@@ -17,7 +17,7 @@ interface Props {
 }
 
 function calcProjections(subject: ScoredBusiness) {
-  const speed = subject.speedScore ?? 50;
+  const speed = 50;
   const reviews = subject.reviewCount ?? 0;
   const hasAds = subject.hasGoogleAds === true;
   const hasCta = subject.hasCta === true;

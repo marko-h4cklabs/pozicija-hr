@@ -49,7 +49,6 @@ function MetaCell({ name, manual }: { name: string; manual: boolean | undefined 
 export default function ComparisonTable({ subject, competitors, metaAdsManual }: Props) {
   const all = [subject, ...competitors];
   const credibilities = all.map((b) => b.credibilityScore ?? (b.reviewsScore + b.ratingScore));
-  const speeds = all.map((b) => b.speedScore);
   const scores = all.map((b) => b.totalScore);
 
   const hasGoogleAdsData = all.some((b) => b.hasGoogleAds !== undefined);
@@ -94,19 +93,6 @@ export default function ComparisonTable({ subject, competitors, metaAdsManual }:
             ))}
           </tr>
 
-          {/* Speed */}
-          <tr className="border-b border-slate-100">
-            <td className="px-4 py-3 text-slate-600 font-medium">Brzina web stranice</td>
-            <td className={`px-4 py-3 text-center border-x-2 border-[#F97316] bg-orange-50 ${highlight(speeds, 0)}`}>
-              {subject.speedScore !== null ? `${subject.speedScore}/100` : 'N/A'}
-            </td>
-            {competitors.map((c, i) => (
-              <td key={i} className={`px-4 py-3 text-center ${highlight(speeds, i + 1)}`}>
-                {c.speedScore !== null ? `${c.speedScore}/100` : 'N/A'}
-              </td>
-            ))}
-          </tr>
-
           {/* Meta Ads */}
           <tr className="border-b border-slate-100 bg-slate-50/40">
             <td className="px-4 py-3 text-slate-600 font-medium">Meta oglasi</td>
@@ -139,11 +125,11 @@ export default function ComparisonTable({ subject, competitors, metaAdsManual }:
           <tr className="border-b-2 border-slate-200 bg-slate-50">
             <td className="px-4 py-3 text-slate-700 font-bold">Ukupni rezultat</td>
             <td className={`px-4 py-3 text-center border-x-2 border-b-2 border-[#F97316] bg-orange-50 font-bold text-base ${highlight(scores, 0)}`}>
-              {subject.totalScore}/100
+              {subject.totalScore}/70
             </td>
             {competitors.map((c, i) => (
               <td key={i} className={`px-4 py-3 text-center font-bold text-base ${highlight(scores, i + 1)}`}>
-                {c.totalScore}/100
+                {c.totalScore}/70
               </td>
             ))}
           </tr>

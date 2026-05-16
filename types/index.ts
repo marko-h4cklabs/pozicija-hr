@@ -5,9 +5,7 @@ export interface BusinessData {
   rating: number | null;
   reviewCount: number | null;
   placeId: string | null;
-  speedScore: number | null;
   // Extended — only populated where applicable; undefined on old reports
-  desktopSpeedScore?: number | null;
   hasSsl?: boolean | null;
   hasCta?: boolean | null;
   hasGoogleAds?: boolean | null;
@@ -16,8 +14,7 @@ export interface BusinessData {
 export interface ScoredBusiness extends BusinessData {
   reviewsScore: number;
   ratingScore: number;
-  credibilityScore?: number;
-  speedPoints: number;
+  credibilityScore: number;
   totalScore: number;
 }
 

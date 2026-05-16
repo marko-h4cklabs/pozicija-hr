@@ -4,14 +4,10 @@ import { generateSlug } from '@/lib/slugify';
 import {
   searchBusiness,
   getPlaceDetails,
-  getPageSpeedScore,
 } from '@/lib/places';
 import { checkGoogleAds, checkHasCta } from '@/lib/ads';
 import { generateAiAnalysis } from '@/lib/claude';
-import {
-  calcCredibilityScore,
-  calcSpeedScore,
-} from '@/lib/scoring';
+import { calcCredibilityScore } from '@/lib/scoring';
 import { BusinessData, ScoredBusiness, ReportData, ManualCompetitor } from '@/types';
 
 function log(step: string, msg: string, data?: unknown) {
@@ -38,10 +34,8 @@ interface Extras {
   hasGoogleAds?: boolean | null;
 }
 
-function buildScored(details: Partial<BusinessData>, speedScore: number | null, extras: Extras = {}): ScoredBusiness {
+function buildScored(details: Partial<BusinessData>, extras: Extras = {}): ScoredBusiness {
   const credibilityScore = calcCredibilityScore(details.rating ?? null, details.reviewCount ?? null);
-  const speedPoints = calcSpeedScore(speedScore);
-  const totalScore = credibilityScore + speedPoints;
 
   return {
     name: details.name ?? 'Nepoznato',
@@ -50,12 +44,10 @@ function buildScored(details: Partial<BusinessData>, speedScore: number | null, 
     rating: details.rating ?? null,
     reviewCount: details.reviewCount ?? null,
     placeId: details.placeId ?? null,
-    speedScore,
     reviewsScore: credibilityScore,
     ratingScore: 0,
     credibilityScore,
-    speedPoints,
-    totalScore,
+    totalScore: credibilityScore,
     ...extras,
   };
 }
@@ -199,33 +191,11 @@ export async function POST(req: NextRequest) {
 
     const hasSsl: boolean | null = business_url ? business_url.startsWith('https://') : null;
 
-    const nullMobileResults = allWebsites.map(() => ({ score: null as number | null, rawResponse: null, error: 'timeout' }));
-    const nullGoogleAds = allNames.map(() => null as boolean | null);
-
-    const checksTimeout = new Promise<[
-      { score: number | null; rawResponse: unknown; error?: string }[],
-      (boolean | null)[],
-      boolean | null
-    ]>((resolve) =>
-      setTimeout(() => {
-        log('step4', 'External checks timed out after 40s — using null fallbacks');
-        resolve([nullMobileResults, nullGoogleAds, null]);
-      }, 40_000)
-    );
-
-    const [mobileSpeedResults, googleAdsResults, ctaResult] = await Promise.race([
-      Promise.all([
-        Promise.all(allWebsites.map((url, i) => getPageSpeedScore(url, allNames[i], 'mobile'))),
-        Promise.all(allNames.map((name) => checkGoogleAds(name))),
-        checkHasCta(allWebsites[0]),
-      ]),
-      checksTimeout,
+    const [googleAdsResults, ctaResult] = await Promise.all([
+      Promise.all(allNames.map((name) => checkGoogleAds(name))),
+      checkHasCta(allWebsites[0]),
     ]);
 
-    const mobileScores = mobileSpeedResults.map((r) => r.score);
-    mobileSpeedResults.forEach((r, i) =>
-      log('step4', `${allNames[i]} mobile PageSpeed: ${r.score ?? `null (${r.error})`}`)
-    );
     allNames.forEach((name, i) =>
       log('step4', `${name}: google=${googleAdsResults[i]}`)
     );
@@ -234,14 +204,14 @@ export async function POST(req: NextRequest) {
     // ── Step 5: Score everything ─────────────────────────────────────────────
     log('step5', 'Calculating scores');
 
-    const subject = buildScored(subjectDetailsRaw, mobileScores[0], {
+    const subject = buildScored(subjectDetailsRaw, {
       hasSsl,
       hasCta: ctaResult,
       hasGoogleAds: googleAdsResults[0],
     });
 
     const competitors = competitorDetailsRaw.map((details, i) =>
-      buildScored(details, mobileScores[i + 1], {
+      buildScored(details, {
         hasGoogleAds: googleAdsResults[i + 1],
       })
     );
