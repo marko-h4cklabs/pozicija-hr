@@ -119,7 +119,7 @@ export async function getPageSpeedScore(
   console.log(`[PageSpeed] [${label}] fetching score for: ${url}`);
 
   try {
-    const res = await fetch(endpoint);
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(12_000) });
     const data = await res.json();
 
     const trimmed = {

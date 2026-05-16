@@ -33,7 +33,6 @@ function err(step: string, msg: string, data?: unknown) {
 }
 
 interface Extras {
-  desktopSpeedScore?: number | null;
   hasSsl?: boolean | null;
   hasCta?: boolean | null;
   hasGoogleAds?: boolean | null;
@@ -200,23 +199,33 @@ export async function POST(req: NextRequest) {
 
     const hasSsl: boolean | null = business_url ? business_url.startsWith('https://') : null;
 
-    const [
-      mobileSpeedResults,
-      subjectDesktopResult,
-      googleAdsResults,
-      ctaResult,
-    ] = await Promise.all([
-      Promise.all(allWebsites.map((url, i) => getPageSpeedScore(url, allNames[i], 'mobile'))),
-      getPageSpeedScore(allWebsites[0], `${allNames[0]}-desktop`, 'desktop'),
-      Promise.all(allNames.map((name) => checkGoogleAds(name))),
-      checkHasCta(allWebsites[0]),
+    const nullMobileResults = allWebsites.map(() => ({ score: null as number | null, rawResponse: null, error: 'timeout' }));
+    const nullGoogleAds = allNames.map(() => null as boolean | null);
+
+    const checksTimeout = new Promise<[
+      { score: number | null; rawResponse: unknown; error?: string }[],
+      (boolean | null)[],
+      boolean | null
+    ]>((resolve) =>
+      setTimeout(() => {
+        log('step4', 'External checks timed out after 40s — using null fallbacks');
+        resolve([nullMobileResults, nullGoogleAds, null]);
+      }, 40_000)
+    );
+
+    const [mobileSpeedResults, googleAdsResults, ctaResult] = await Promise.race([
+      Promise.all([
+        Promise.all(allWebsites.map((url, i) => getPageSpeedScore(url, allNames[i], 'mobile'))),
+        Promise.all(allNames.map((name) => checkGoogleAds(name))),
+        checkHasCta(allWebsites[0]),
+      ]),
+      checksTimeout,
     ]);
 
     const mobileScores = mobileSpeedResults.map((r) => r.score);
     mobileSpeedResults.forEach((r, i) =>
       log('step4', `${allNames[i]} mobile PageSpeed: ${r.score ?? `null (${r.error})`}`)
     );
-    log('step4', `Subject desktop PageSpeed: ${subjectDesktopResult.score}`);
     allNames.forEach((name, i) =>
       log('step4', `${name}: google=${googleAdsResults[i]}`)
     );
@@ -226,7 +235,6 @@ export async function POST(req: NextRequest) {
     log('step5', 'Calculating scores');
 
     const subject = buildScored(subjectDetailsRaw, mobileScores[0], {
-      desktopSpeedScore: subjectDesktopResult.score,
       hasSsl,
       hasCta: ctaResult,
       hasGoogleAds: googleAdsResults[0],
