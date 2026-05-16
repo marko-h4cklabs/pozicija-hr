@@ -8,13 +8,18 @@ import { metaAdsUrl } from '@/lib/ads';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://pozicija-hr.com';
 const DOMAIN = BASE_URL.replace(/^https?:\/\//, '');
 
-function slugify(value: string): string {
+// Applied on every keystroke: lowercase, spaces→hyphens, strip invalid chars.
+// Deliberately does NOT remove trailing hyphens so the user can type "inmont-project".
+function sanitizeSlug(value: string): string {
   return value
     .toLowerCase()
     .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/[^a-z0-9-]/g, '');
+}
+
+// Applied on blur: collapse runs of hyphens and trim leading/trailing.
+function finalizeSlug(value: string): string {
+  return value.replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
 interface Props {
@@ -39,9 +44,12 @@ export default function ReviewClient({ report }: Props) {
   }
 
   function handleSlugChange(raw: string) {
-    const clean = slugify(raw);
-    setCustomSlug(clean);
+    setCustomSlug(sanitizeSlug(raw));
     setSlugError('');
+  }
+
+  function handleSlugBlur() {
+    setCustomSlug((prev) => finalizeSlug(prev));
   }
 
   async function handlePublish() {
@@ -205,6 +213,7 @@ export default function ReviewClient({ report }: Props) {
             type="text"
             value={customSlug}
             onChange={(e) => handleSlugChange(e.target.value)}
+            onBlur={handleSlugBlur}
             placeholder="npr. dental-jelic-zagreb"
             className={`w-full border rounded-lg px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] ${
               slugError ? 'border-red-400 bg-red-50' : 'border-slate-200'
