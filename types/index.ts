@@ -35,6 +35,9 @@ export interface ReportData {
 export interface Report {
   id: string;
   slug: string;
+  status: string;                                   // 'draft' | 'published'
+  custom_slug: string | null;
+  meta_ads_manual: Record<string, boolean> | null;
   business_name: string;
   business_url: string;
   business_city: string;

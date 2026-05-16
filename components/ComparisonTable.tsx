@@ -4,6 +4,7 @@ import { metaAdsUrl } from '@/lib/ads';
 interface Props {
   subject: ScoredBusiness;
   competitors: ScoredBusiness[];
+  metaAdsManual?: Record<string, boolean>;
 }
 
 function highlight(values: (number | null)[], index: number): string {
@@ -39,7 +40,13 @@ function MetaLinkCell({ name }: { name: string }) {
   );
 }
 
-export default function ComparisonTable({ subject, competitors }: Props) {
+function MetaCell({ name, manual }: { name: string; manual: boolean | undefined }) {
+  if (manual === true) return <span className="font-semibold text-green-600">✓ DA</span>;
+  if (manual === false) return <span className="font-semibold text-red-500">✗ NE</span>;
+  return <MetaLinkCell name={name} />;
+}
+
+export default function ComparisonTable({ subject, competitors, metaAdsManual }: Props) {
   const all = [subject, ...competitors];
   const credibilities = all.map((b) => b.credibilityScore ?? (b.reviewsScore + b.ratingScore));
   const speeds = all.map((b) => b.speedScore);
@@ -100,15 +107,15 @@ export default function ComparisonTable({ subject, competitors }: Props) {
             ))}
           </tr>
 
-          {/* Meta Ads — always show, link to Ad Library for each business */}
+          {/* Meta Ads */}
           <tr className="border-b border-slate-100 bg-slate-50/40">
             <td className="px-4 py-3 text-slate-600 font-medium">Meta oglasi</td>
             <td className="px-4 py-3 text-center border-x-2 border-[#F97316] bg-orange-50">
-              <MetaLinkCell name={subject.name} />
+              <MetaCell name={subject.name} manual={metaAdsManual?.[subject.name]} />
             </td>
             {competitors.map((c, i) => (
               <td key={i} className="px-4 py-3 text-center">
-                <MetaLinkCell name={c.name} />
+                <MetaCell name={c.name} manual={metaAdsManual?.[c.name]} />
               </td>
             ))}
           </tr>

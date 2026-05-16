@@ -4,7 +4,7 @@ import { Report } from '@/types';
 import AdminClient from './AdminClient';
 
 interface Props {
-  searchParams: { error?: string };
+  searchParams: { error?: string; published?: string };
 }
 
 export default async function AdminPage({ searchParams }: Props) {
@@ -17,11 +17,16 @@ export default async function AdminPage({ searchParams }: Props) {
 
   const { data: reports } = await supabaseAdmin
     .from('reports')
-    .select('id, slug, business_name, business_city, business_niche, created_at, open_count, opened_at')
+    .select('id, slug, custom_slug, status, business_name, business_city, business_niche, created_at, open_count, opened_at')
     .order('created_at', { ascending: false })
     .returns<Report[]>();
 
-  return <AdminClient reports={reports ?? []} />;
+  return (
+    <AdminClient
+      reports={reports ?? []}
+      justPublished={searchParams.published === '1'}
+    />
+  );
 }
 
 function AdminLoginGate({ hasError }: { hasError: boolean }) {

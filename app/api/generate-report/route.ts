@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { generateSlug } from '@/lib/slugify';
 import {
   searchBusiness,
-  searchCompetitors,
   getPlaceDetails,
   getPageSpeedScore,
 } from '@/lib/places';
@@ -90,10 +89,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Filter out blank manual competitor rows
+    // Require at least one manual competitor
     const manuals: ManualCompetitor[] = (manual_competitors ?? []).filter((c) => c.name.trim());
-    const useManual = manuals.length > 0;
-    log('init', `Manual competitors: ${useManual ? manuals.length : 'none (auto-discovery)'}`);
+    if (manuals.length === 0) {
+      return NextResponse.json(
+        { error: 'Dodajte najmanje jednog konkurenta za usporedbu.', step: 'validation' },
+        { status: 400 }
+      );
+    }
+    log('init', `Manual competitors: ${manuals.length}`);
 
     // ── Step 1: Search for subject ───────────────────────────────────────────
     log('step1', `Searching subject: "${business_name}" in "${business_city}" (${business_niche})`);
@@ -111,43 +115,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 2: Find competitor place IDs ────────────────────────────────────
+    // ── Step 2: Search Places for manual competitors ─────────────────────────
+    log('step2', `Searching Places for ${manuals.length} competitor(s)`);
+
     let competitorPlaceIds: (string | null)[];
     let competitorUrlOverrides: (string | null)[];
-    let competitorNameOverrides: (string | null)[];
+    let competitorNameOverrides: string[];
 
-    if (useManual) {
-      log('step2', `Searching Places for ${manuals.length} manual competitor(s)`);
-      try {
-        const searches = await Promise.all(
-          manuals.map((c) => searchBusiness(c.name, business_city, ''))
-        );
-        competitorPlaceIds = searches.map((r) => r.placeId);
-        competitorUrlOverrides = manuals.map((c) => c.url || null);
-        competitorNameOverrides = manuals.map((c) => c.name);
-        log('step2', `Manual place_ids: ${JSON.stringify(competitorPlaceIds)}`);
-      } catch (e) {
-        err('step2', 'searchBusiness (manual) threw', e instanceof Error ? e.message : e);
-        return NextResponse.json(
-          { error: 'Greška pri pretraživanju konkurenata na Google Places.', step: 'search_competitors' },
-          { status: 502 }
-        );
-      }
-    } else {
-      log('step2', `Auto-discovering competitors for "${business_niche}" in "${business_city}"`);
-      try {
-        const result = await searchCompetitors(business_niche, business_city, subjectPlaceId);
-        competitorPlaceIds = result.placeIds;
-        competitorUrlOverrides = result.placeIds.map(() => null);
-        competitorNameOverrides = result.placeIds.map(() => null);
-        log('step2', `Found ${competitorPlaceIds.length} competitor(s)`, competitorPlaceIds);
-      } catch (e) {
-        err('step2', 'searchCompetitors threw', e instanceof Error ? e.message : e);
-        return NextResponse.json(
-          { error: 'Greška pri pretraživanju konkurenata na Google Places.', step: 'search_competitors' },
-          { status: 502 }
-        );
-      }
+    try {
+      const searches = await Promise.all(
+        manuals.map((c) => searchBusiness(c.name, business_city, ''))
+      );
+      competitorPlaceIds = searches.map((r) => r.placeId);
+      competitorUrlOverrides = manuals.map((c) => c.url || null);
+      competitorNameOverrides = manuals.map((c) => c.name);
+      log('step2', `Competitor place_ids: ${JSON.stringify(competitorPlaceIds)}`);
+    } catch (e) {
+      err('step2', 'searchBusiness (competitors) threw', e instanceof Error ? e.message : e);
+      return NextResponse.json(
+        { error: 'Greška pri pretraživanju konkurenata na Google Places.', step: 'search_competitors' },
+        { status: 502 }
+      );
     }
 
     // ── Step 3: Fetch Place Details for all businesses in parallel ───────────
@@ -275,6 +263,7 @@ export async function POST(req: NextRequest) {
 
     const { error: insertError } = await supabaseAdmin.from('reports').insert({
       slug,
+      status: 'draft',
       business_name,
       business_url: business_url || '',
       business_city,
