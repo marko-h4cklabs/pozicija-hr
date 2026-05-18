@@ -15,13 +15,26 @@ const SYSTEM_PROMPT =
   `- Reference their SPECIFIC competitors by name, with their real numbers\n` +
   `- Write like a smart peer who knows marketing, not a corporate consultant`;
 
-function stripMarkdown(text: string): string {
-  return text
+// Strips markdown formatting and removes any non-Croatian/non-Latin unicode characters
+// that can appear as garbled output (e.g. CJK characters from model hallucinations)
+function sanitizeClaudeText(text: string): string {
+  // Strip markdown
+  let out = text
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .trim();
+    .replace(/`([^`]+)`/g, '$1');
+
+  // Remove any character that is not:
+  // - Basic Latin (a-z, A-Z, 0-9, standard punctuation, whitespace)
+  // - Croatian diacritics: č ć đ š ž Č Ć Đ Š Ž
+  // - Common symbols used in text: € % / - ( ) + = . , ; : ! ? " ' « » „ " "
+  out = out.replace(/[^\x09\x0A\x0D\x20-\x7Eа-яА-ЯčćđšžČĆĐŠŽ€%]/g, '');
+
+  // Collapse runs of whitespace that may appear after stripping
+  out = out.replace(/[ \t]{2,}/g, ' ').trim();
+
+  return out;
 }
 
 export async function generateAiAnalysis(reportData: ReportData): Promise<string | null> {
@@ -61,7 +74,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
       ...(reportData.bonitetGrade ? { bonitetGrade: reportData.bonitetGrade } : {}),
       ...(reportData.financialHistory?.length
         ? {
-            financialSummary: reportData.financialHistory.slice(-3).map(y => ({
+            financialSummary: reportData.financialHistory.slice(-3).map((y) => ({
               year: y.year,
               prihodi: y.ukupni_prihodi,
               dobit: y.dobitak_gubitak,
@@ -91,18 +104,12 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `- Ton: pametni prijatelj koji se razumije u marketing, ne prodajni pitch\n` +
     `- NIKADA ne spominji iznose za oglašavanje ili budžete\n\n` +
     `Napiši analizu s TOČNO ovim naslovima sekcija (naslov na zasebnom retku, iza kojeg slijedi tekst):\n\n` +
-    `NAJVEĆE PRILIKE\n` +
-    `Što konkretno propuštaju, uz statistike i usporedbu s imenovanim konkurentima. ` +
-    `Primjer tona: "Primijetili smo da [konkurent] ima X recenzija u usporedbi s vašim Y, a istraživanja pokazuju da 88% korisnika čita recenzije prije prve posjete." ` +
-    `Napiši 2-3 rečenice o najvažnijim prilikama, sve u tekućem tekstu.\n\n` +
     `PROCJENA IZGUBLJENOG PRIHODA\n` +
     `Počni s "Prema našoj analizi, [naziv tvrtke]...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
     `bazirano na razlici u rezultatima i industriji. 2 rečenice.\n\n` +
     `ŠTO BI ODMAH TREBALI NAPRAVITI\n` +
     `Tri konkretna koraka po prioritetu, u tekućem tekstu (bez nabrajanja). ` +
-    `Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.\n\n` +
-    `RIZIK NEAKCIJE\n` +
-    `Jedna do dvije rečenice. Počni s "Ako se ništa ne promijeni u sljedećih 90 dana..." i navedni stvarnog konkurenta.`;
+    `Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -114,7 +121,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
+        max_tokens: 1000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -129,7 +136,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     }
 
     const raw: string | null = data.content?.[0]?.text ?? null;
-    const text = raw ? stripMarkdown(raw) : null;
+    const text = raw ? sanitizeClaudeText(raw) : null;
     console.log('[Claude] analysis generated, length:', text?.length ?? 0);
     return text;
   } catch (e) {

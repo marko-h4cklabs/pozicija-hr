@@ -1,8 +1,6 @@
 const SECTION_KEYS = [
-  'NAJVEĆE PRILIKE',
   'PROCJENA IZGUBLJENOG PRIHODA',
   'ŠTO BI ODMAH TREBALI NAPRAVITI',
-  'RIZIK NEAKCIJE',
 ] as const;
 
 function parseSections(text: string): Array<{ title: string; content: string }> {

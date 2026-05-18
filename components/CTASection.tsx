@@ -3,12 +3,6 @@ export default function CTASection() {
 
   return (
     <section className="bg-[#0F172A] py-16 px-6 text-center">
-      <h2 className="text-white text-2xl sm:text-3xl font-bold mb-4">
-        Spremni preuzeti vodstvo u svojoj niši?
-      </h2>
-      <p className="text-slate-400 text-lg mb-8 max-w-xl mx-auto">
-        Besplatni 20-minutni poziv — bez obveza — konkretni koraci za vaš rast.
-      </p>
       <a
         href={`https://wa.me/${waNumber}`}
         target="_blank"
