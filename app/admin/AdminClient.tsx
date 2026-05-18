@@ -44,6 +44,15 @@ export default function AdminClient({ reports, justPublished }: Props) {
   const [error, setError] = useState('');
   const [copiedSlug, setCopiedSlug] = useState('');
 
+  // ── WhatsApp modal ───────────────────────────────────────────────────────
+  const [waModal, setWaModal] = useState<{
+    open: boolean;
+    reportName: string;
+    loading: boolean;
+    message: string;
+    copied: boolean;
+  }>({ open: false, reportName: '', loading: false, message: '', copied: false });
+
   // ── Input step ───────────────────────────────────────────────────────────
   const [companyWallUrl, setCompanyWallUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -114,7 +123,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         employees: data.employees ?? null,
       });
       setStep('preview');
-    } catch (err) {
+    } catch (_err) {
       setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
       setStep('manual');
       setError('Nije moguće dohvatiti CompanyWall. Unesi podatke ručno.');
@@ -174,6 +183,32 @@ export default function AdminClient({ reports, justPublished }: Props) {
       setError(err instanceof Error ? err.message : 'Došlo je do greške. Molimo pokušajte ponovo.');
       setGenerating(false);
     }
+  }
+
+  async function openWaModal(report: Report) {
+    setWaModal({ open: true, reportName: report.business_name, loading: true, message: '', copied: false });
+    try {
+      const res = await fetch('/api/generate-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Greška');
+      setWaModal((p) => ({ ...p, loading: false, message: data.message }));
+    } catch (_e) {
+      setWaModal((p) => ({ ...p, loading: false, message: 'Greška pri generiranju poruke. Pokušaj ponovo.' }));
+    }
+  }
+
+  function closeWaModal() {
+    setWaModal({ open: false, reportName: '', loading: false, message: '', copied: false });
+  }
+
+  function copyWaMessage() {
+    navigator.clipboard.writeText(waModal.message);
+    setWaModal((p) => ({ ...p, copied: true }));
+    setTimeout(() => setWaModal((p) => ({ ...p, copied: false })), 2000);
   }
 
   function copyLink(slug: string, customSlug?: string | null) {
@@ -605,6 +640,14 @@ export default function AdminClient({ reports, justPublished }: Props) {
                             >
                               PDF
                             </a>
+                            {!isDraft && (
+                              <button
+                                onClick={() => openWaModal(r)}
+                                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#25D366]/10 text-[#16a34a] hover:bg-[#25D366]/20 transition-colors whitespace-nowrap"
+                              >
+                                WA poruka
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -623,6 +666,71 @@ export default function AdminClient({ reports, justPublished }: Props) {
           </div>
         </section>
       </div>
+
+      {/* ── WhatsApp Message Modal ─────────────────────────────────────── */}
+      {waModal.open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) closeWaModal(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-800">WhatsApp poruka</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{waModal.reportName}</p>
+              </div>
+              <button
+                onClick={closeWaModal}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5">
+              {waModal.loading ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <div className="w-6 h-6 border-2 border-slate-200 border-t-[#F97316] rounded-full animate-spin" />
+                  <p className="text-sm text-slate-500">Generiram poruku...</p>
+                </div>
+              ) : (
+                <textarea
+                  value={waModal.message}
+                  onChange={(e) => setWaModal((p) => ({ ...p, message: e.target.value }))}
+                  rows={7}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#F97316] resize-none"
+                />
+              )}
+            </div>
+
+            {/* Modal footer */}
+            {!waModal.loading && (
+              <div className="flex items-center gap-3 px-6 pb-5">
+                <button
+                  onClick={copyWaMessage}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    waModal.copied
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {waModal.copied ? 'Kopirano!' : 'Kopiraj poruku'}
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(waModal.message)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-center bg-[#25D366] text-white hover:bg-green-500 transition-colors"
+                >
+                  Otvori WhatsApp
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
