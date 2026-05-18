@@ -56,10 +56,8 @@ function googleAdsColor(val: boolean | null | undefined): string {
 }
 
 const AI_SECTIONS = [
-  'NAJVEĆE PRILIKE',
   'PROCJENA IZGUBLJENOG PRIHODA',
   'ŠTO BI ODMAH TREBALI NAPRAVITI',
-  'RIZIK NEAKCIJE',
 ];
 
 function parseSectionsForPdf(text: string): Array<{ title: string; content: string }> {

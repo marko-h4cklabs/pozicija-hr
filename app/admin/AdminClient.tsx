@@ -215,7 +215,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
       const res = await fetch('/api/generate-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report }),
+        body: JSON.stringify({ slug: report.slug }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(String(data.error ?? `HTTP ${res.status}`));

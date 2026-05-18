@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 import { Report } from '@/types';
 
 const WA_SYSTEM =
@@ -8,33 +9,6 @@ const WA_SYSTEM =
   `Reference their specific situation. End with ultra-low commitment ask. ` +
   `Never mention agency, services, or price. ` +
   `Write in Croatian using ti not Vi. Max 4 sentences total.`;
-
-function extractWeakness(aiAnalysis: string | null | undefined): string {
-  if (!aiAnalysis) return '';
-  const SECTION = 'PROCJENA IZGUBLJENOG PRIHODA';
-  const start = aiAnalysis.indexOf(SECTION);
-  if (start === -1) return aiAnalysis.slice(0, 150);
-  const contentStart = start + SECTION.length;
-  let end = aiAnalysis.length;
-  for (const s of ['ŠTO BI', 'RIZIK']) {
-    const idx = aiAnalysis.indexOf(s, contentStart);
-    if (idx !== -1 && idx < end) end = idx;
-  }
-  const section = aiAnalysis.slice(contentStart, end).trim();
-  return section.split(/[.!?]/)[0].trim().slice(0, 200);
-}
-
-function extractMonthlyLoss(aiAnalysis: string | null | undefined): string {
-  if (!aiAnalysis) return '';
-  const SECTION = 'PROCJENA IZGUBLJENOG PRIHODA';
-  const start = aiAnalysis.indexOf(SECTION);
-  if (start === -1) return '';
-  const slice = aiAnalysis.slice(start, start + 600);
-  const match = /(\d[\d.]*)\s*EUR/i.exec(slice);
-  if (!match) return '';
-  const num = parseInt(match[1].replace(/\./g, ''), 10);
-  return isNaN(num) || num <= 0 ? '' : `${num.toLocaleString('hr-HR')} EUR`;
-}
 
 export async function POST(req: NextRequest) {
   console.log('[generate-whatsapp] route called');
@@ -46,60 +20,118 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY nije konfiguriran na serveru.' }, { status: 500 });
     }
 
-    let report: Report;
+    // Accept only slug — never trust client-serialised report_data
+    let slug: string;
     try {
       const body = await req.json();
-      report = body.report;
-      if (!report) throw new Error('missing "report" key in request body');
+      slug = body.slug;
+      if (!slug || typeof slug !== 'string') throw new Error('missing "slug" in request body');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[generate-whatsapp] bad request body:', msg);
       return NextResponse.json({ error: `Neispravan zahtjev: ${msg}` }, { status: 400 });
     }
 
-    const { subject, competitors, aiAnalysis } = report.report_data;
+    // Fetch fresh from Supabase (try internal slug first, then custom_slug)
+    let report: Report | null = null;
+    const { data: bySlug } = await supabaseAdmin
+      .from('reports')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle<Report>();
+    if (bySlug) {
+      report = bySlug;
+    } else {
+      const { data: byCustom } = await supabaseAdmin
+        .from('reports')
+        .select('*')
+        .eq('custom_slug', slug)
+        .maybeSingle<Report>();
+      if (byCustom) report = byCustom;
+    }
+
+    if (!report) {
+      console.error('[generate-whatsapp] report not found for slug:', slug);
+      return NextResponse.json({ error: `Izvještaj nije pronađen: ${slug}` }, { status: 404 });
+    }
+
+    const rd = report.report_data;
+    if (!rd) {
+      console.error('[generate-whatsapp] report_data is null for slug:', slug);
+      return NextResponse.json({ error: 'report_data je prazan u bazi.' }, { status: 500 });
+    }
+
+    const { subject, competitors } = rd;
 
     const topCompetitor =
       competitors.length > 0
         ? competitors.reduce((a, b) => (a.totalScore > b.totalScore ? a : b))
         : null;
 
-    const weakness = extractWeakness(aiAnalysis);
-    const monthlyLoss = extractMonthlyLoss(aiAnalysis);
+    const ownerFirstName = rd.ownerName
+      ? rd.ownerName.trim().split(/\s+/)[0]
+      : null;
 
-    const ownerFullName = report.report_data.ownerName ?? null;
-    const ownerFirstName = ownerFullName ? ownerFullName.trim().split(/\s+/)[0] : null;
+    // Build a rich data block so Claude has everything it needs
+    const reviewGap =
+      topCompetitor && subject.reviewCount != null && topCompetitor.reviewCount != null
+        ? topCompetitor.reviewCount - subject.reviewCount
+        : null;
+
+    const ratingGap =
+      topCompetitor && subject.rating != null && topCompetitor.rating != null
+        ? Math.round((topCompetitor.rating - subject.rating) * 10) / 10
+        : null;
 
     const dataLines = [
       `Naziv tvrtke: ${report.business_name}`,
-      ownerFirstName ? `Ime vlasnika/direktora: ${ownerFirstName}` : null,
-      `Rezultat: ${subject.totalScore}/100`,
+      ownerFirstName ? `Ime vlasnika: ${ownerFirstName}` : null,
+      `Djelatnost: ${rd.businessNiche}`,
+      `Grad: ${rd.businessCity}`,
+      `Digitalni rezultat tvrtke: ${subject.totalScore}/100`,
+      subject.reviewCount != null ? `Broj Google recenzija: ${subject.reviewCount}` : null,
+      subject.rating != null ? `Prosječna ocjena: ${subject.rating}` : null,
+      subject.hasGoogleAds ? `Google Ads: DA` : `Google Ads: NE`,
+      subject.hasCta != null ? `CTA na web stranici: ${subject.hasCta ? 'DA' : 'NE'}` : null,
       topCompetitor
-        ? `Glavni konkurent: ${topCompetitor.name} (rezultat: ${topCompetitor.totalScore}/100)`
+        ? `Glavni konkurent: ${topCompetitor.name} (rezultat: ${topCompetitor.totalScore}/100, recenzije: ${topCompetitor.reviewCount ?? '?'}, ocjena: ${topCompetitor.rating ?? '?'})`
         : null,
-      weakness ? `Ključna informacija: ${weakness}` : null,
-      monthlyLoss ? `Procijenjeni mjesečni gubitak: ${monthlyLoss}` : null,
+      reviewGap != null && reviewGap > 0
+        ? `Razlika u recenzijama vs. konkurent: ${topCompetitor!.name} ima ${reviewGap} recenzija više`
+        : null,
+      ratingGap != null && ratingGap > 0
+        ? `Razlika u ocjeni vs. konkurent: ${topCompetitor!.name} ima ocjenu bolju za ${ratingGap}`
+        : null,
+      rd.annualRevenue ? `Godišnji prihod: ${rd.annualRevenue.toLocaleString('hr-HR')} EUR` : null,
+      rd.revenueGrowth != null
+        ? `Rast prihoda: ${rd.revenueGrowth > 0 ? '+' : ''}${rd.revenueGrowth}%`
+        : null,
+      rd.companySize ? `Veličina tvrtke: ${rd.companySize}` : null,
+      rd.bonitetGrade ? `Bonitetna ocjena: ${rd.bonitetGrade}` : null,
     ]
       .filter(Boolean)
       .join('\n');
 
     const prompt =
-      `Napiši WhatsApp poruku za outreach prema vlasniku tvrtke.\n\n` +
-      `Podaci:\n${dataLines}\n\n` +
-      `PRAVILA (strogo ih se drži):\n` +
-      `- Maksimalno 4 rečenice ukupno\n` +
+      `Napiši WhatsApp poruku u 4 rečenice za outreach prema vlasniku tvrtke. Evo svih podataka:\n\n` +
+      `${dataLines}\n\n` +
+      `PRAVILA:\n` +
       (ownerFirstName
         ? `- Počni s "Bok ${ownerFirstName},"\n`
         : `- Počni s "Bok,"\n`) +
-      `- Rečenica 1: Jedna konkretna činjenica koja zaboli — koristi pravo ime konkurenta i jedan pravi broj\n` +
-      `- Rečenica 2: Napomeni da si napravio nešto konkretno za njih (ne kaži što je)\n` +
-      `- Rečenica 3: Minimalan commitment — napiši točno: "Traje 90 sekundi pogledati."\n` +
-      `- Rečenica 4: Potpis — napiši točno: "Marko"\n` +
-      `- Nikad ne spominji agenciju, usluge, cijenu ili marketing\n` +
-      `- Bez emojija, bez formalnog jezika, koristi "ti" ne "Vi"\n` +
-      `- Vrati SAMO tekst poruke, bez ikakvih dodatnih komentara`;
+      `- Rečenica 1: Oslovi ga/je po imenu i navedi JEDNU konkretnu činjenicu o njihovoj digitalnoj prisutnosti ` +
+      `u usporedbi s imenovanim konkurentom — koristi pravi broj koji boli (recenzije, ocjena, score). ` +
+      `Budi toliko specifičan da ne može misliti da je ovo template poruka.\n` +
+      `- Rečenica 2: Reci da si za njih pripremio nešto konkretno — misteriozno, ne objašnjavaj što je.\n` +
+      `- Rečenica 3: Napiši točno: "Traje 90 sekundi pogledati."\n` +
+      `- Rečenica 4: Napiši točno: "Marko"\n` +
+      `- NIKADA ne spominji agenciju, marketing, usluge ili cijenu\n` +
+      `- Ton: pametan susjed koji je nešto primijetio, ne prodavač\n` +
+      `- Bez emojija\n` +
+      `- Koristi "ti" oblik, nikad "Vi"\n` +
+      `- Vrati SAMO tekst poruke, bez ikakvog uvoda ili objašnjenja`;
 
-    console.log('[generate-whatsapp] calling Anthropic, dataLines:', dataLines);
+    console.log('[generate-whatsapp] slug:', slug, '| dataLines:\n', dataLines);
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -110,7 +142,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
+        max_tokens: 350,
         system: WA_SYSTEM,
         messages: [{ role: 'user', content: prompt }],
       }),

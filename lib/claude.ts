@@ -52,6 +52,9 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
         name: subject.name,
         rating: subject.rating,
         reviewCount: subject.reviewCount,
+        reviewCount_note: (subject.reviewCount ?? 0) >= 50
+          ? 'DO NOT mention reviews - business has 50+ reviews'
+          : `Only ${subject.reviewCount ?? 0} reviews — mention if relevant`,
         totalScore: subject.totalScore,
         credibilityScore: subject.credibilityScore,
         hasGoogleAds: subject.hasGoogleAds ?? null,
@@ -102,14 +105,20 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `- Uvijek koristi stvarne brojeve iz podataka i stvarna imena konkurenata\n` +
     `- Maksimalno 3 rečenice po sekciji. Direktno i konkretno.\n` +
     `- Ton: pametni prijatelj koji se razumije u marketing, ne prodajni pitch\n` +
-    `- NIKADA ne spominji iznose za oglašavanje ili budžete\n\n` +
+    `- NIKADA ne spominji iznose za oglašavanje ili budžete\n` +
+    `- PRAVILO O RECENZIJAMA: Analiziraj i spominji recenzije SAMO ako tvrtka ima MANJE od 50 recenzija. ` +
+    `Ako ima 50 ili više recenzija, ne komentariraj recenzije uopće i fokusiraj se na druge slabosti.\n\n` +
     `Napiši analizu s TOČNO ovim naslovima sekcija (naslov na zasebnom retku, iza kojeg slijedi tekst):\n\n` +
     `PROCJENA IZGUBLJENOG PRIHODA\n` +
     `Počni s "Prema našoj analizi, [naziv tvrtke]...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
     `bazirano na razlici u rezultatima i industriji. 2 rečenice.\n\n` +
     `ŠTO BI ODMAH TREBALI NAPRAVITI\n` +
-    `Tri konkretna koraka po prioritetu, u tekućem tekstu (bez nabrajanja). ` +
-    `Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.`;
+    `Navedi tri konkretna koraka TOČNO ovim redoslijedom prioriteta, u tekućem tekstu bez nabrajanja:\n` +
+    `  PRVO: uvijek web stranica / landing page (brzina, CTA, mobilna verzija)\n` +
+    `  DRUGO: recenzije i Google prisutnost — ALI SAMO ako tvrtka ima MANJE od 50 recenzija. ` +
+    `Ako ima 50 ili više recenzija, preskočite ovaj korak i idite na sljedeći prioritet\n` +
+    `  TREĆE: plaćeno oglašavanje (Google Ads ili Meta Ads)\n` +
+    `Nikad ne mijenjaj ovaj redoslijed. Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {

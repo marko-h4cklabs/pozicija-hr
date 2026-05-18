@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Analiziraj.com — Digitalna konkurentska analiza',
+  title: 'Analiziraj.com',
   description:
     'Saznajte gdje stojite u usporedbi s konkurencijom u 60 sekundi. Besplatna analiza za hrvatska poduzeća.',
 };

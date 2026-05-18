@@ -4,9 +4,6 @@ export default function Navbar() {
       <span className="text-white font-bold text-xl tracking-tight">
         Analiziraj.com
       </span>
-      <span className="text-slate-400 text-sm hidden sm:block">
-        Digitalna konkurentska analiza
-      </span>
     </nav>
   );
 }

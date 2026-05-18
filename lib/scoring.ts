@@ -30,10 +30,10 @@ export function calcRatingScore(rating: number | null): number {
 }
 
 export function getScoreLabel(score: number): string {
-  if (score >= 81) return 'Iznad prosjeka — ali prilike prolaze';
-  if (score >= 66) return 'Osrednje — postoji ozbiljan prostor za poboljšanje';
-  if (score >= 41) return 'Ispod prosjeka — konkurencija vas aktivno preuzima';
-  return 'Kritično — gubite klijente svaki dan';
+  if (score >= 81) return 'Iznad prosjeka, ali prilike prolaze';
+  if (score >= 66) return 'Osrednje, postoji ozbiljan prostor za poboljšanje';
+  if (score >= 41) return 'Ispod prosjeka, konkurencija vas aktivno preuzima';
+  return 'Kritično, gubite klijente svaki dan';
 }
 
 export function getScoreColor(score: number): string {
