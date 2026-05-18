@@ -43,6 +43,8 @@ export default function AdminClient({ reports, justPublished }: Props) {
   const [scraping, setScraping] = useState(false);
   const [error, setError] = useState('');
   const [copiedSlug, setCopiedSlug] = useState('');
+  const [reportList, setReportList] = useState<Report[]>(reports);
+  const [deletingSlug, setDeletingSlug] = useState('');
 
   // ── WhatsApp modal ───────────────────────────────────────────────────────
   const [waModal, setWaModal] = useState<{
@@ -123,7 +125,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         employees: data.employees ?? null,
       });
       setStep('preview');
-    } catch (_err) {
+    } catch {
       setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
       setStep('manual');
       setError('Nije moguće dohvatiti CompanyWall. Unesi podatke ručno.');
@@ -196,7 +198,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? 'Greška');
       setWaModal((p) => ({ ...p, loading: false, message: data.message }));
-    } catch (_e) {
+    } catch {
       setWaModal((p) => ({ ...p, loading: false, message: 'Greška pri generiranju poruke. Pokušaj ponovo.' }));
     }
   }
@@ -209,6 +211,27 @@ export default function AdminClient({ reports, justPublished }: Props) {
     navigator.clipboard.writeText(waModal.message);
     setWaModal((p) => ({ ...p, copied: true }));
     setTimeout(() => setWaModal((p) => ({ ...p, copied: false })), 2000);
+  }
+
+  async function handleDelete(slug: string, name: string) {
+    const ok = window.confirm(
+      `Jeste li sigurni da želite obrisati ovaj izvještaj?\n\n"${name}"\n\nOva radnja se ne može poništiti.`
+    );
+    if (!ok) return;
+    setDeletingSlug(slug);
+    try {
+      const res = await fetch(`/api/delete-report/${slug}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Greška pri brisanju. Pokušaj ponovo.');
+        return;
+      }
+      setReportList((prev) => prev.filter((r) => r.slug !== slug));
+    } catch {
+      alert('Greška pri brisanju. Pokušaj ponovo.');
+    } finally {
+      setDeletingSlug('');
+    }
   }
 
   function copyLink(slug: string, customSlug?: string | null) {
@@ -557,7 +580,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         {/* Section B: Reports table */}
         <section>
           <h2 className="text-xl font-bold text-slate-800 mb-6">
-            Svi izvještaji ({reports.length})
+            Svi izvještaji ({reportList.length})
           </h2>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -574,7 +597,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.map((r) => {
+                  {reportList.map((r) => {
                     const isDraft = !r.status || r.status === 'draft';
                     return (
                       <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
@@ -648,12 +671,20 @@ export default function AdminClient({ reports, justPublished }: Props) {
                                 WA poruka
                               </button>
                             )}
+                            <button
+                              onClick={() => handleDelete(r.slug, r.business_name)}
+                              disabled={deletingSlug === r.slug}
+                              title="Obriši izvještaj"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-base"
+                            >
+                              {deletingSlug === r.slug ? '…' : '🗑'}
+                            </button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {reports.length === 0 && (
+                  {reportList.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                         Nema izvještaja još.
