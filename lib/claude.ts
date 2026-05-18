@@ -39,6 +39,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
       })),
       city: reportData.businessCity,
       niche: reportData.businessNiche,
+      ...(reportData.annualRevenue ? { annualRevenue_EUR: reportData.annualRevenue } : {}),
     },
     null,
     2

@@ -16,15 +16,23 @@ export function getIndustryMonthlyValue(niche: string): number {
 export function calcRevenueLoss(
   subject: ScoredBusiness,
   competitors: ScoredBusiness[],
-  niche: string
+  niche: string,
+  annualRevenue?: number | null,
 ): { monthlyLoss: number; annualLoss: number; dailyCost: number } {
   const topScore =
     competitors.length > 0
       ? Math.max(...competitors.map((c) => c.totalScore))
       : subject.totalScore;
   const scoreGap = Math.max(10, topScore - subject.totalScore);
-  const industryValue = getIndustryMonthlyValue(niche);
-  const monthlyLoss = Math.round((scoreGap / 100) * industryValue);
+
+  let monthlyLoss: number;
+  if (annualRevenue && annualRevenue > 0) {
+    // Use actual revenue: (score gap / 100) × (annual / 12) × 15%
+    monthlyLoss = Math.round((scoreGap / 100) * (annualRevenue / 12) * 0.15);
+  } else {
+    monthlyLoss = Math.round((scoreGap / 100) * getIndustryMonthlyValue(niche));
+  }
+
   const annualLoss = monthlyLoss * 12;
   const dailyCost = Math.max(1, Math.round(monthlyLoss / 30));
   return { monthlyLoss, annualLoss, dailyCost };

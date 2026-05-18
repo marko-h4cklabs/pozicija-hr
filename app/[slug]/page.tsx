@@ -75,6 +75,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
             competitors={competitors}
             niche={report.business_niche}
             aiAnalysis={aiAnalysis}
+            annualRevenue={report.report_data.annualRevenue}
           />
 
           {aiAnalysis && (

@@ -62,12 +62,14 @@ export async function POST(req: NextRequest) {
       business_url,
       business_city,
       business_niche,
+      annual_revenue,
       manual_competitors,
     } = body as {
       business_name: string;
       business_url: string;
       business_city: string;
       business_niche: string;
+      annual_revenue?: number | null;
       manual_competitors?: ManualCompetitor[];
     };
 
@@ -229,6 +231,7 @@ export async function POST(req: NextRequest) {
       businessCity: business_city,
       businessNiche: business_niche,
       aiAnalysis: null,
+      annualRevenue: annual_revenue ?? null,
     };
 
     log('step6', 'Generating AI analysis');

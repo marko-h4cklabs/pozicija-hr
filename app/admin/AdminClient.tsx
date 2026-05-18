@@ -23,25 +23,44 @@ interface Props {
   justPublished?: boolean;
 }
 
+interface ScrapedPreview {
+  name: string;
+  city: string;
+  niche: string;
+  annualRevenue: string;
+  employees: number | null;
+}
+
+type FormStep = 'input' | 'preview' | 'manual';
+
 export default function AdminClient({ reports, justPublished }: Props) {
   const router = useRouter();
-  const [form, setForm] = useState({
+
+  // ── Shared state ─────────────────────────────────────────────────────────
+  const [step, setStep] = useState<FormStep>('input');
+  const [manualCompetitors, setManualCompetitors] = useState<ManualCompetitor[]>([{ name: '', url: '' }]);
+  const [generating, setGenerating] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [error, setError] = useState('');
+  const [copiedSlug, setCopiedSlug] = useState('');
+
+  // ── Input step ───────────────────────────────────────────────────────────
+  const [companyWallUrl, setCompanyWallUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+
+  // ── Preview step (scraped + editable) ───────────────────────────────────
+  const [preview, setPreview] = useState<ScrapedPreview | null>(null);
+
+  // ── Manual fallback ──────────────────────────────────────────────────────
+  const [manualForm, setManualForm] = useState({
     business_name: '',
     business_url: '',
     business_city: '',
     business_niche: '',
+    annual_revenue: '',
   });
-  const [manualCompetitors, setManualCompetitors] = useState<ManualCompetitor[]>([
-    { name: '', url: '' },
-  ]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [copiedSlug, setCopiedSlug] = useState('');
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  }
-
+  // ── Competitor helpers ───────────────────────────────────────────────────
   function addCompetitor() {
     if (manualCompetitors.length < 4) {
       setManualCompetitors((prev) => [...prev, { name: '', url: '' }]);
@@ -59,6 +78,52 @@ export default function AdminClient({ reports, justPublished }: Props) {
     );
   }
 
+  // ── Step 1: Scrape CompanyWall ───────────────────────────────────────────
+  async function handleScrape(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+
+    const filled = manualCompetitors.filter((c) => c.name.trim());
+    if (filled.length === 0) {
+      setError('Dodajte najmanje jednog konkurenta za usporedbu.');
+      return;
+    }
+
+    setScraping(true);
+    try {
+      const res = await fetch('/api/scrape-companywall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: companyWallUrl }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        // Fall back to manual entry, pre-filling website URL
+        setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+        setStep('manual');
+        setError(data.error ?? 'Scraping nije uspio. Unesi podatke ručno.');
+        return;
+      }
+
+      setPreview({
+        name: data.name ?? '',
+        city: data.city ?? '',
+        niche: data.niche ?? 'Drugo',
+        annualRevenue: data.annualRevenue ? String(data.annualRevenue) : '',
+        employees: data.employees ?? null,
+      });
+      setStep('preview');
+    } catch (err) {
+      setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+      setStep('manual');
+      setError('Nije moguće dohvatiti CompanyWall. Unesi podatke ručno.');
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  // ── Step 2/3: Generate report ────────────────────────────────────────────
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -69,23 +134,45 @@ export default function AdminClient({ reports, justPublished }: Props) {
       return;
     }
 
-    setLoading(true);
+    let payload: Record<string, unknown>;
+
+    if (step === 'preview' && preview) {
+      const annualRev = preview.annualRevenue ? parseInt(preview.annualRevenue, 10) || null : null;
+      payload = {
+        business_name: preview.name,
+        business_url: websiteUrl,
+        business_city: preview.city,
+        business_niche: preview.niche,
+        annual_revenue: annualRev,
+        manual_competitors: filled,
+      };
+    } else {
+      const annualRev = manualForm.annual_revenue
+        ? parseInt(manualForm.annual_revenue, 10) || null
+        : null;
+      payload = {
+        business_name: manualForm.business_name,
+        business_url: manualForm.business_url,
+        business_city: manualForm.business_city,
+        business_niche: manualForm.business_niche,
+        annual_revenue: annualRev,
+        manual_competitors: filled,
+      };
+    }
+
+    setGenerating(true);
     try {
       const res = await fetch('/api/generate-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          manual_competitors: filled,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok || !data.slug) throw new Error(data.error ?? 'Greška');
-
       router.push(`/admin/review/${data.slug}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Došlo je do greške. Molimo pokušajte ponovo.');
-      setLoading(false);
+      setGenerating(false);
     }
   }
 
@@ -100,6 +187,61 @@ export default function AdminClient({ reports, justPublished }: Props) {
     if (!iso) return '—';
     return new Date(iso).toLocaleString('hr-HR', { timeZone: 'Europe/Zagreb' });
   }
+
+  // ── Competitors section (shared) ─────────────────────────────────────────
+  const competitorsSection = (
+    <div className="border-t border-slate-100 pt-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-700">
+            Konkurenti za usporedbu{' '}
+            <span className="text-[#F97316]">(obavezno)</span>
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Ocjene i recenzije dohvaćaju se s Google Mapsa. Dodajte URL ako ga znate.
+          </p>
+        </div>
+        {manualCompetitors.length < 4 && (
+          <button
+            type="button"
+            onClick={addCompetitor}
+            className="ml-4 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+          >
+            + Dodaj konkurenta
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {manualCompetitors.map((c, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={c.name}
+              onChange={(e) => updateCompetitor(i, 'name', e.target.value)}
+              placeholder={`Naziv konkurenta ${i + 1}`}
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+            />
+            <input
+              type="url"
+              value={c.url}
+              onChange={(e) => updateCompetitor(i, 'url', e.target.value)}
+              placeholder="https://... (opcionalno)"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+            />
+            <button
+              type="button"
+              onClick={() => removeCompetitor(i)}
+              disabled={manualCompetitors.length <= 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors text-lg font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Ukloni"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -130,132 +272,250 @@ export default function AdminClient({ reports, justPublished }: Props) {
         <section>
           <h2 className="text-xl font-bold text-slate-800 mb-6">Generiraj izvještaj za prospects</h2>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-            <form onSubmit={handleGenerate} className="space-y-5">
-              {/* Core business fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Naziv tvrtke *
-                  </label>
-                  <input
-                    type="text"
-                    name="business_name"
-                    value={form.business_name}
-                    onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Web stranica
-                  </label>
-                  <input
-                    type="url"
-                    name="business_url"
-                    value={form.business_url}
-                    onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Grad *
-                  </label>
-                  <input
-                    type="text"
-                    name="business_city"
-                    value={form.business_city}
-                    onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Djelatnost *
-                  </label>
-                  <select
-                    name="business_niche"
-                    value={form.business_niche}
-                    onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                    required
-                  >
-                    <option value="" disabled>Odaberite</option>
-                    {NICHES.map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
-              {/* Competitors — required */}
-              <div className="border-t border-slate-100 pt-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">
-                      Konkurenti za usporedbu{' '}
-                      <span className="text-[#F97316]">(obavezno)</span>
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Ocjene i recenzije dohvaćaju se s Google Mapsa. Dodajte URL ako ga znate.
+            {/* ── STEP: INPUT ─────────────────────────────────────────────── */}
+            {step === 'input' && (
+              <form onSubmit={handleScrape} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                      CompanyWall URL *
+                    </label>
+                    <input
+                      type="url"
+                      value={companyWallUrl}
+                      onChange={(e) => setCompanyWallUrl(e.target.value)}
+                      placeholder="https://www.companywall.hr/tvrtka/naziv/..."
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      required
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Idi na companywall.hr, pronađi tvrtku i zalijepi cijeli URL.
                     </p>
                   </div>
-                  {manualCompetitors.length < 4 && (
-                    <button
-                      type="button"
-                      onClick={addCompetitor}
-                      className="ml-4 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                    >
-                      + Dodaj konkurenta
-                    </button>
-                  )}
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                      Web stranica tvrtke (opcionalno)
+                    </label>
+                    <input
+                      type="url"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  {manualCompetitors.map((c, i) => (
-                    <div key={i} className="flex gap-2 items-center">
+                {competitorsSection}
+
+                {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
+
+                <button
+                  type="submit"
+                  disabled={scraping}
+                  className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
+                >
+                  {scraping ? 'Dohvaćanje podataka...' : 'Dohvati podatke s CompanyWall'}
+                </button>
+              </form>
+            )}
+
+            {/* ── STEP: PREVIEW ───────────────────────────────────────────── */}
+            {step === 'preview' && preview && (
+              <form onSubmit={handleGenerate} className="space-y-5">
+                {/* Scraped data card */}
+                <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-green-600 text-lg font-bold">✓</span>
+                    <span className="text-green-800 font-semibold text-sm">
+                      Podaci dohvaćeni s CompanyWall — provjeri i ispravi po potrebi
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Naziv tvrtke *
+                      </label>
                       <input
                         type="text"
-                        value={c.name}
-                        onChange={(e) => updateCompetitor(i, 'name', e.target.value)}
-                        placeholder={`Naziv konkurenta ${i + 1}`}
-                        className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                        value={preview.name}
+                        onChange={(e) => setPreview((p) => p ? { ...p, name: e.target.value } : p)}
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                        required
                       />
-                      <input
-                        type="url"
-                        value={c.url}
-                        onChange={(e) => updateCompetitor(i, 'url', e.target.value)}
-                        placeholder="https://... (opcionalno)"
-                        className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeCompetitor(i)}
-                        disabled={manualCompetitors.length <= 1}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors text-lg font-bold disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Ukloni"
-                      >
-                        ×
-                      </button>
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Grad *
+                      </label>
+                      <input
+                        type="text"
+                        value={preview.city}
+                        onChange={(e) => setPreview((p) => p ? { ...p, city: e.target.value } : p)}
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Djelatnost *
+                      </label>
+                      <select
+                        value={preview.niche}
+                        onChange={(e) => setPreview((p) => p ? { ...p, niche: e.target.value } : p)}
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                        required
+                      >
+                        {NICHES.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Godišnji prihodi (EUR)
+                      </label>
+                      <input
+                        type="number"
+                        value={preview.annualRevenue}
+                        onChange={(e) => setPreview((p) => p ? { ...p, annualRevenue: e.target.value } : p)}
+                        placeholder="npr. 2450000"
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      />
+                      {preview.annualRevenue && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          ≈ {(parseInt(preview.annualRevenue, 10) / 12).toLocaleString('hr-HR', { maximumFractionDigits: 0 })} EUR/mj.
+                        </p>
+                      )}
+                    </div>
+                    {preview.employees !== null && (
+                      <div className="flex items-center gap-2 sm:col-span-2">
+                        <span className="text-xs text-slate-500">Zaposlenici:</span>
+                        <span className="text-sm font-semibold text-slate-700">{preview.employees}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {error && (
-                <p className="text-red-500 text-sm font-medium">{error}</p>
-              )}
+                {competitorsSection}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
-              >
-                {loading ? 'Generiranje...' : 'Generiraj izvještaj'}
-              </button>
-            </form>
+                {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={generating}
+                    className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
+                  >
+                    {generating ? 'Generiranje...' : 'Generiraj izvještaj'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setStep('input'); setError(''); }}
+                    className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    ← Nazad
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ── STEP: MANUAL FALLBACK ────────────────────────────────────── */}
+            {step === 'manual' && (
+              <form onSubmit={handleGenerate} className="space-y-5">
+                {error && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                    <span className="text-amber-500 text-sm mt-0.5">⚠</span>
+                    <p className="text-amber-800 text-sm">{error}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Naziv tvrtke *</label>
+                    <input
+                      type="text"
+                      name="business_name"
+                      value={manualForm.business_name}
+                      onChange={(e) => setManualForm((p) => ({ ...p, business_name: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Web stranica</label>
+                    <input
+                      type="url"
+                      name="business_url"
+                      value={manualForm.business_url}
+                      onChange={(e) => setManualForm((p) => ({ ...p, business_url: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Grad *</label>
+                    <input
+                      type="text"
+                      name="business_city"
+                      value={manualForm.business_city}
+                      onChange={(e) => setManualForm((p) => ({ ...p, business_city: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Djelatnost *</label>
+                    <select
+                      name="business_niche"
+                      value={manualForm.business_niche}
+                      onChange={(e) => setManualForm((p) => ({ ...p, business_niche: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      required
+                    >
+                      <option value="" disabled>Odaberite</option>
+                      {NICHES.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                      Godišnji prihodi (EUR)
+                      <span className="ml-1 font-normal text-slate-400">— opcionalno, za točniju procjenu gubitka</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="annual_revenue"
+                      value={manualForm.annual_revenue}
+                      onChange={(e) => setManualForm((p) => ({ ...p, annual_revenue: e.target.value }))}
+                      placeholder="npr. 2450000"
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                    />
+                  </div>
+                </div>
+
+                {competitorsSection}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={generating}
+                    className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
+                  >
+                    {generating ? 'Generiranje...' : 'Generiraj izvještaj'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setStep('input'); setError(''); }}
+                    className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    ← Nazad
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </section>
 

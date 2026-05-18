@@ -155,7 +155,8 @@ export function ReportPDF({ report }: Props) {
   const { monthlyLoss, annualLoss } = calcRevenueLoss(
     subject,
     competitors,
-    report.report_data.businessNiche
+    report.report_data.businessNiche,
+    report.report_data.annualRevenue,
   );
 
   const now = new Date().toLocaleDateString('hr-HR', {

@@ -6,6 +6,7 @@ interface Props {
   competitors: ScoredBusiness[];
   niche: string;
   aiAnalysis?: string | null;
+  annualRevenue?: number | null;
 }
 
 function parseRevenueFromAi(text: string | null | undefined): { monthly: string; annual: string } | null {
@@ -65,7 +66,7 @@ function parseRevenueFromAi(text: string | null | undefined): { monthly: string;
   return { monthly: monthlyStr, annual: annualStr };
 }
 
-export default function RevenueGap({ subject, competitors, niche, aiAnalysis }: Props) {
+export default function RevenueGap({ subject, competitors, niche, aiAnalysis, annualRevenue }: Props) {
   const parsed = parseRevenueFromAi(aiAnalysis);
 
   let monthlyStr: string;
@@ -75,7 +76,7 @@ export default function RevenueGap({ subject, competitors, niche, aiAnalysis }: 
     monthlyStr = parsed.monthly;
     annualStr = parsed.annual;
   } else {
-    const { monthlyLoss, annualLoss } = calcRevenueLoss(subject, competitors, niche);
+    const { monthlyLoss, annualLoss } = calcRevenueLoss(subject, competitors, niche, annualRevenue);
     monthlyStr = `${monthlyLoss.toLocaleString('hr-HR')} EUR`;
     annualStr = `${annualLoss.toLocaleString('hr-HR')} EUR`;
   }

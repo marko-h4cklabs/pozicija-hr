@@ -27,6 +27,7 @@ export interface ReportData {
   businessCity: string;
   businessNiche: string;
   aiAnalysis?: string | null;
+  annualRevenue?: number | null;
 }
 
 export interface Report {
