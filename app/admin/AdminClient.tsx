@@ -79,6 +79,28 @@ export default function AdminClient({ reports, justPublished }: Props) {
     annual_revenue: '',
   });
 
+  // ── Fallback helper — extract a rough company name from the CompanyWall URL slug ──
+  function nameHintFromUrl(cwUrl: string): string {
+    try {
+      const parts = new URL(cwUrl).pathname.split('/').filter(Boolean);
+      // CompanyWall URLs: /tvrtka/<slug>/<id> or /company/<slug>/<id>
+      const slugIdx = parts.findIndex((p) => /^tvrtka|^company/.test(p));
+      const slug = slugIdx !== -1 ? parts[slugIdx + 1] : parts[parts.length - 2];
+      if (!slug || /^\d+$/.test(slug)) return '';
+      // Convert slug to title-case name, drop trailing legal suffixes like -d-o-o
+      return slug
+        .replace(/-d-o-o$/i, '')
+        .replace(/-j-d-o-o$/i, '')
+        .replace(/-d-d$/i, '')
+        .split('-')
+        .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ''))
+        .join(' ')
+        .trim();
+    } catch {
+      return '';
+    }
+  }
+
   // ── Competitor helpers ───────────────────────────────────────────────────
   function addCompetitor() {
     if (manualCompetitors.length < 4) {
@@ -118,8 +140,12 @@ export default function AdminClient({ reports, justPublished }: Props) {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        // Fall back to manual entry, pre-filling website URL
-        setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+        const hint = nameHintFromUrl(companyWallUrl);
+        setManualForm((prev) => ({
+          ...prev,
+          business_url: websiteUrl,
+          business_name: prev.business_name || hint,
+        }));
         setStep('manual');
         setError(data.error ?? 'Scraping nije uspio. Unesi podatke ručno.');
         return;
@@ -141,7 +167,12 @@ export default function AdminClient({ reports, justPublished }: Props) {
       });
       setStep('preview');
     } catch {
-      setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+      const hint = nameHintFromUrl(companyWallUrl);
+      setManualForm((prev) => ({
+        ...prev,
+        business_url: websiteUrl,
+        business_name: prev.business_name || hint,
+      }));
       setStep('manual');
       setError('Nije moguće dohvatiti CompanyWall. Unesi podatke ručno.');
     } finally {

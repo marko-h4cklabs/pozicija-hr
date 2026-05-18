@@ -303,18 +303,41 @@ function parseEmployeesFallback(html: string): number | null {
 
 // ── Main export ───────────────────────────────────────────────────────────
 
+const CW_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'hr-HR,hr;q=0.9,en;q=0.8',
+  Connection: 'keep-alive',
+  'Upgrade-Insecure-Requests': '1',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+};
+
+async function fetchWithRetry(url: string): Promise<Response> {
+  const attempt = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const res = await fetch(url, { headers: CW_HEADERS, signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  try {
+    return await attempt();
+  } catch (e) {
+    const isTimeout = e instanceof Error && (e.name === 'AbortError' || e.message.includes('aborted') || e.message.includes('timeout'));
+    if (!isTimeout) throw e;
+    console.log('[scrape-companywall] first attempt timed out, retrying in 2s...');
+    await new Promise((r) => setTimeout(r, 2000));
+    return attempt();
+  }
+}
+
 export async function scrapeCompanyWall(url: string): Promise<ScrapedCompanyData> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
-      Connection: 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Cache-Control': 'max-age=0',
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
+  const res = await fetchWithRetry(url);
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const html = await res.text();
