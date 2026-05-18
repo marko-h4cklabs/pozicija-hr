@@ -218,10 +218,12 @@ export default function AdminClient({ reports, justPublished }: Props) {
         body: JSON.stringify({ report }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Greška');
+      if (!res.ok || data.error) throw new Error(String(data.error ?? `HTTP ${res.status}`));
       setWaModal((p) => ({ ...p, loading: false, message: data.message }));
-    } catch {
-      setWaModal((p) => ({ ...p, loading: false, message: 'Greška pri generiranju poruke. Pokušaj ponovo.' }));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[openWaModal]', msg);
+      setWaModal((p) => ({ ...p, loading: false, message: `Greška: ${msg}` }));
     }
   }
 

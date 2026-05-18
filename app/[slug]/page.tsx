@@ -9,6 +9,7 @@ import IntroVideo from '@/components/IntroVideo';
 import RevenueGap from '@/components/RevenueGap';
 import CTASection from '@/components/CTASection';
 import Footer from '@/components/Footer';
+import FirstStepRecommendation from '@/components/FirstStepRecommendation';
 import TrackOpen from './TrackOpen';
 
 interface Props {
@@ -40,7 +41,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const report = await getPublishedReport(params.slug);
   if (!report) return notFound();
 
-  const { subject, competitors, aiAnalysis } = report.report_data;
+  const { subject, competitors, aiAnalysis, firstStep } = report.report_data;
   const introVideoUrl = process.env.NEXT_PUBLIC_INTRO_VIDEO_URL;
   const isPreview = searchParams.preview === '1';
 
@@ -83,6 +84,8 @@ export default async function ReportPage({ params, searchParams }: Props) {
               <AiAnalysis analysis={aiAnalysis} businessName={report.business_name} />
             </section>
           )}
+
+          {firstStep && <FirstStepRecommendation data={firstStep} />}
 
         </div>
       </main>

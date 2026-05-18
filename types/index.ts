@@ -26,6 +26,13 @@ export interface ScoredBusiness extends BusinessData {
   totalScore: number;
 }
 
+export interface FirstStepRecommendation {
+  project: string;
+  reasoning: string;
+  outcome: string;
+  timeline: string;
+}
+
 export interface ReportData {
   subject: ScoredBusiness;
   competitors: ScoredBusiness[];
@@ -35,6 +42,7 @@ export interface ReportData {
   businessCity: string;
   businessNiche: string;
   aiAnalysis?: string | null;
+  firstStep?: FirstStepRecommendation | null;
   annualRevenue?: number | null;
   ownerName?: string | null;
   phoneNumber?: string | null;

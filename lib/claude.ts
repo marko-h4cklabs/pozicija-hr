@@ -1,4 +1,19 @@
-import { ReportData } from '@/types';
+import { ReportData, FirstStepRecommendation } from '@/types';
+import { MARKETING_KNOWLEDGE_BASE } from '@/lib/knowledge-base';
+
+const SYSTEM_PROMPT =
+  `You are Marko's private marketing intelligence system. ` +
+  `You have deep expertise in digital marketing for Croatian and Balkan businesses. ` +
+  `You operate from Marko's complete marketing methodology — the knowledge base below. ` +
+  `Apply it to every analysis you generate.\n\n` +
+  `${MARKETING_KNOWLEDGE_BASE}\n\n` +
+  `When generating analysis:\n` +
+  `- Apply THREE THRESHOLDS framework (Desire/Value, Certainty, Trust) to identify where the business is weakest\n` +
+  `- Apply FUNNEL TRIAGE logic (Ad CTR → Landing Page → Close Rate) to pinpoint where they're losing customers\n` +
+  `- Apply PROJECT SELECTION logic to identify the single highest-ROI first move\n` +
+  `- Apply PROJECT MATH to frame everything in their actual money (customer value × volume = ROI)\n` +
+  `- Reference their SPECIFIC competitors by name, with their real numbers\n` +
+  `- Write like a smart peer who knows marketing, not a corporate consultant`;
 
 function stripMarkdown(text: string): string {
   return text
@@ -100,6 +115,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1500,
+        system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: AbortSignal.timeout(30_000),
@@ -118,6 +134,100 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     return text;
   } catch (e) {
     console.warn('[Claude] failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+export async function generateFirstStepRecommendation(
+  reportData: ReportData
+): Promise<FirstStepRecommendation | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const { subject, competitors, businessCity, businessNiche, annualRevenue, companySize, bonitetGrade } = reportData;
+
+  const topCompetitor =
+    competitors.length > 0
+      ? competitors.reduce((a, b) => (a.totalScore > b.totalScore ? a : b))
+      : null;
+
+  const dataJson = JSON.stringify(
+    {
+      subject: {
+        name: subject.name,
+        rating: subject.rating,
+        reviewCount: subject.reviewCount,
+        totalScore: subject.totalScore,
+        hasGoogleAds: subject.hasGoogleAds ?? null,
+        hasSsl: subject.hasSsl ?? null,
+        hasCta: subject.hasCta ?? null,
+      },
+      topCompetitor: topCompetitor
+        ? { name: topCompetitor.name, totalScore: topCompetitor.totalScore, hasGoogleAds: topCompetitor.hasGoogleAds }
+        : null,
+      city: businessCity,
+      niche: businessNiche,
+      ...(annualRevenue ? { annualRevenue_EUR: annualRevenue } : {}),
+      ...(companySize ? { companySize } : {}),
+      ...(bonitetGrade ? { bonitetGrade } : {}),
+    },
+    null,
+    2
+  );
+
+  const prompt =
+    `Na temelju podataka ispod, primijeni PROJECT SELECTION logiku iz metodologije i odaberi JEDAN najvažniji prvi korak. ` +
+    `Vrati odgovor ISKLJUČIVO kao validan JSON objekt (bez ikakvih objašnjenja, bez markdown, samo JSON).\n\n` +
+    `Podaci:\n${dataJson}\n\n` +
+    `JSON format koji moraš vratiti (točno ova 4 ključa):\n` +
+    `{\n` +
+    `  "project": "Kratki naziv projekta (npr. Google recenzije, Google Search Ads, Landing stranica)",\n` +
+    `  "reasoning": "2 rečenice zašto OVO, s pravim brojevima i imenom konkurenta",\n` +
+    `  "outcome": "Konkretan mjerljiv rezultat u EUR ili leadovima (npr. +8 upita/mj = 3.200 EUR/mj)",\n` +
+    `  "timeline": "Realan vremenski okvir (npr. Vidljivi rezultati za 30 dana)"\n` +
+    `}\n\n` +
+    `Pravila:\n` +
+    `- Piši na hrvatskom\n` +
+    `- Koristi stvarne podatke iz JSON-a (prava imena, pravi brojevi)\n` +
+    `- Bez marketinškog žargona\n` +
+    `- Bez iznosa budžeta za oglase`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    const data = await res.json();
+    if (data.error) {
+      console.warn('[Claude/firstStep] API error:', data.error);
+      return null;
+    }
+
+    const raw: string = data.content?.[0]?.text?.trim() ?? '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('[Claude/firstStep] no JSON found in response');
+      return null;
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]) as FirstStepRecommendation;
+    if (!parsed.project || !parsed.reasoning) return null;
+    console.log('[Claude] firstStep generated:', parsed.project);
+    return parsed;
+  } catch (e) {
+    console.warn('[Claude/firstStep] failed:', e instanceof Error ? e.message : e);
     return null;
   }
 }

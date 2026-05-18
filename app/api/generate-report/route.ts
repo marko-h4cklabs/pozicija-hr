@@ -6,7 +6,7 @@ import {
   getPlaceDetails,
 } from '@/lib/places';
 import { checkGoogleAds, checkHasCta } from '@/lib/ads';
-import { generateAiAnalysis } from '@/lib/claude';
+import { generateAiAnalysis, generateFirstStepRecommendation } from '@/lib/claude';
 import { calcCredibilityScore } from '@/lib/scoring';
 import { BusinessData, ScoredBusiness, ReportData, ManualCompetitor } from '@/types';
 
@@ -255,9 +255,13 @@ export async function POST(req: NextRequest) {
       foundedYear: founded_year ?? null,
     };
 
-    log('step6', 'Generating AI analysis');
-    reportData.aiAnalysis = await generateAiAnalysis(reportData);
+    log('step6', 'Generating AI analysis + first step in parallel');
+    [reportData.aiAnalysis, reportData.firstStep] = await Promise.all([
+      generateAiAnalysis(reportData),
+      generateFirstStepRecommendation(reportData),
+    ]);
     log('step6', `AI analysis: ${reportData.aiAnalysis ? `${reportData.aiAnalysis.length} chars` : 'null'}`);
+    log('step6', `First step: ${reportData.firstStep?.project ?? 'null'}`);
 
     // ── Step 7: Store report ─────────────────────────────────────────────────
     const slug = generateSlug(business_name);
