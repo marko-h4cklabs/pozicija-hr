@@ -40,6 +40,20 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
       city: reportData.businessCity,
       niche: reportData.businessNiche,
       ...(reportData.annualRevenue ? { annualRevenue_EUR: reportData.annualRevenue } : {}),
+      ...(reportData.ownerName ? { ownerFirstName: reportData.ownerName.split(' ')[0] } : {}),
+      ...(reportData.revenueGrowth != null ? { revenueGrowth_pct: reportData.revenueGrowth } : {}),
+      ...(reportData.companySize ? { companySize: reportData.companySize } : {}),
+      ...(reportData.bonitetGrade ? { bonitetGrade: reportData.bonitetGrade } : {}),
+      ...(reportData.financialHistory?.length
+        ? {
+            financialSummary: reportData.financialHistory.slice(-3).map(y => ({
+              year: y.year,
+              prihodi: y.ukupni_prihodi,
+              dobit: y.dobitak_gubitak,
+              zaposleni: y.broj_zaposlenih,
+            })),
+          }
+        : {}),
     },
     null,
     2
@@ -49,6 +63,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `Ti si iskusni konzultant za digitalni marketing koji je upravo završio analizu za klijenta. ` +
     `Pišeš osobno, kao da sjediš nasuprot njima uz kavu i daješ im iskrenu procjenu. ` +
     `Podaci koje si prikupio:\n\n${dataJson}\n\n` +
+    `KONTEKST ZA TON: Ako su financijski podaci dostupni, prilagodi ton — tvrtka s rastom prihoda i visokim bonitetom (AA+, AA) ima VIŠE kapaciteta za ulaganje i VIŠE za izgubiti od stagnirajuće. Rastući biznis s dobrim bonitetom = jači poziv na akciju i veća urgentnost.\n\n` +
     `PRAVILA PISANJA (strogo ih se drži):\n` +
     `- Piši na hrvatskom jeziku\n` +
     `- Piši u prvom licu množine: "Primijetili smo...", "Naša analiza pokazuje...", "Prema podacima koje smo prikupili...", "Kada smo usporedili..."\n` +

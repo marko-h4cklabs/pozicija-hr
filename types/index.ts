@@ -1,3 +1,11 @@
+export interface FinancialYear {
+  year: number;
+  ukupni_prihodi: number | null;
+  ukupni_rashodi: number | null;
+  dobitak_gubitak: number | null;
+  broj_zaposlenih: number | null;
+}
+
 export interface BusinessData {
   name: string;
   address: string;
@@ -28,6 +36,13 @@ export interface ReportData {
   businessNiche: string;
   aiAnalysis?: string | null;
   annualRevenue?: number | null;
+  ownerName?: string | null;
+  phoneNumber?: string | null;
+  companySize?: string | null;
+  bonitetGrade?: string | null;
+  revenueGrowth?: number | null;
+  financialHistory?: FinancialYear[] | null;
+  foundedYear?: string | null;
 }
 
 export interface Report {

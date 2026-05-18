@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Report, ManualCompetitor } from '@/types';
+import { Report, ManualCompetitor, FinancialYear } from '@/types';
 
 const NICHES = [
   'Restoran',
@@ -13,6 +13,7 @@ const NICHES = [
   'Teretana',
   'Hotel',
   'Maloprodaja',
+  'Građevina',
   'Drugo',
 ];
 
@@ -25,10 +26,17 @@ interface Props {
 
 interface ScrapedPreview {
   name: string;
+  ownerName: string;
+  phoneNumber: string;
   city: string;
   niche: string;
   annualRevenue: string;
+  revenueGrowth: number | null;
+  companySize: string;
+  bonitetGrade: string;
   employees: number | null;
+  foundedYear: string;
+  financialHistory: FinancialYear[];
 }
 
 type FormStep = 'input' | 'preview' | 'manual';
@@ -119,10 +127,17 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
       setPreview({
         name: data.name ?? '',
+        ownerName: data.ownerName ?? '',
+        phoneNumber: data.phoneNumber ?? '',
         city: data.city ?? '',
         niche: data.niche ?? 'Drugo',
         annualRevenue: data.annualRevenue ? String(data.annualRevenue) : '',
+        revenueGrowth: data.revenueGrowth ?? null,
+        companySize: data.companySize ?? '',
+        bonitetGrade: data.bonitetGrade ?? '',
         employees: data.employees ?? null,
+        foundedYear: data.foundedYear ?? '',
+        financialHistory: data.financialHistory ?? [],
       });
       setStep('preview');
     } catch {
@@ -155,6 +170,13 @@ export default function AdminClient({ reports, justPublished }: Props) {
         business_city: preview.city,
         business_niche: preview.niche,
         annual_revenue: annualRev,
+        owner_name: preview.ownerName || null,
+        phone_number: preview.phoneNumber || null,
+        company_size: preview.companySize || null,
+        bonitet_grade: preview.bonitetGrade || null,
+        revenue_growth: preview.revenueGrowth ?? null,
+        financial_history: preview.financialHistory.length > 0 ? preview.financialHistory : null,
+        founded_year: preview.foundedYear || null,
         manual_competitors: filled,
       };
     } else {
@@ -384,14 +406,30 @@ export default function AdminClient({ reports, justPublished }: Props) {
               <form onSubmit={handleGenerate} className="space-y-5">
                 {/* Scraped data card */}
                 <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-green-600 text-lg font-bold">✓</span>
-                    <span className="text-green-800 font-semibold text-sm">
-                      Podaci dohvaćeni s CompanyWall — provjeri i ispravi po potrebi
-                    </span>
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 text-lg font-bold">✓</span>
+                      <span className="text-green-800 font-semibold text-sm">
+                        Podaci dohvaćeni s CompanyWall — provjeri i ispravi po potrebi
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {preview.companySize && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                          {preview.companySize}
+                        </span>
+                      )}
+                      {preview.bonitetGrade && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          {preview.bonitetGrade}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Company name */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
                         Naziv tvrtke *
@@ -404,6 +442,35 @@ export default function AdminClient({ reports, justPublished }: Props) {
                         required
                       />
                     </div>
+
+                    {/* Owner name */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Ime direktora/vlasnika
+                      </label>
+                      <input
+                        type="text"
+                        value={preview.ownerName}
+                        onChange={(e) => setPreview((p) => p ? { ...p, ownerName: e.target.value } : p)}
+                        placeholder="npr. Ivan Horvat"
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      />
+                    </div>
+
+                    {/* Phone — display only */}
+                    {preview.phoneNumber && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                          Telefon
+                        </label>
+                        <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700">
+                          <span>📞</span>
+                          <span className="font-mono">{preview.phoneNumber}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* City */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
                         Grad *
@@ -416,6 +483,8 @@ export default function AdminClient({ reports, justPublished }: Props) {
                         required
                       />
                     </div>
+
+                    {/* Niche */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
                         Djelatnost *
@@ -431,9 +500,11 @@ export default function AdminClient({ reports, justPublished }: Props) {
                         ))}
                       </select>
                     </div>
+
+                    {/* Annual revenue */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
-                        Godišnji prihodi (EUR)
+                        Godišnji prihodi 2024 (EUR)
                       </label>
                       <input
                         type="number"
@@ -448,10 +519,27 @@ export default function AdminClient({ reports, justPublished }: Props) {
                         </p>
                       )}
                     </div>
-                    {preview.employees !== null && (
-                      <div className="flex items-center gap-2 sm:col-span-2">
-                        <span className="text-xs text-slate-500">Zaposlenici:</span>
-                        <span className="text-sm font-semibold text-slate-700">{preview.employees}</span>
+
+                    {/* Revenue trend */}
+                    {preview.revenueGrowth !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${preview.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {preview.revenueGrowth >= 0 ? '↑' : '↓'}{' '}
+                          {preview.revenueGrowth >= 0 ? '+' : ''}{preview.revenueGrowth}% {preview.revenueGrowth >= 0 ? 'rast' : 'pad'}
+                        </span>
+                        {preview.financialHistory.length >= 2 && (
+                          <span className="text-xs text-slate-400">
+                            ({preview.financialHistory[0].year}→{preview.financialHistory[preview.financialHistory.length - 1].year})
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Info row: founded year + employees */}
+                    {(preview.foundedYear || preview.employees !== null) && (
+                      <div className="flex items-center gap-4 sm:col-span-2 text-xs text-slate-500">
+                        {preview.foundedYear && <span>Osnovana: <strong className="text-slate-700">{preview.foundedYear}</strong></span>}
+                        {preview.employees !== null && <span>Zaposlenici: <strong className="text-slate-700">{preview.employees}</strong></span>}
                       </div>
                     )}
                   </div>
@@ -601,7 +689,19 @@ export default function AdminClient({ reports, justPublished }: Props) {
                     const isDraft = !r.status || r.status === 'draft';
                     return (
                       <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{r.business_name}</td>
+                        <td className="px-4 py-3 font-medium text-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span>{r.business_name}</span>
+                            {r.report_data?.phoneNumber && (
+                              <span
+                                title={r.report_data.phoneNumber}
+                                className="text-slate-300 hover:text-slate-600 cursor-default transition-colors text-xs"
+                              >
+                                📞
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-slate-600">{r.business_city}</td>
                         <td className="px-4 py-3 text-slate-600">{r.business_niche}</td>
                         <td className="px-4 py-3">

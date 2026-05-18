@@ -63,6 +63,13 @@ export async function POST(req: NextRequest) {
       business_city,
       business_niche,
       annual_revenue,
+      owner_name,
+      phone_number,
+      company_size,
+      bonitet_grade,
+      revenue_growth,
+      financial_history,
+      founded_year,
       manual_competitors,
     } = body as {
       business_name: string;
@@ -70,6 +77,13 @@ export async function POST(req: NextRequest) {
       business_city: string;
       business_niche: string;
       annual_revenue?: number | null;
+      owner_name?: string | null;
+      phone_number?: string | null;
+      company_size?: string | null;
+      bonitet_grade?: string | null;
+      revenue_growth?: number | null;
+      financial_history?: import('@/types').FinancialYear[] | null;
+      founded_year?: string | null;
       manual_competitors?: ManualCompetitor[];
     };
 
@@ -232,6 +246,13 @@ export async function POST(req: NextRequest) {
       businessNiche: business_niche,
       aiAnalysis: null,
       annualRevenue: annual_revenue ?? null,
+      ownerName: owner_name ?? null,
+      phoneNumber: phone_number ?? null,
+      companySize: company_size ?? null,
+      bonitetGrade: bonitet_grade ?? null,
+      revenueGrowth: revenue_growth ?? null,
+      financialHistory: financial_history ?? null,
+      foundedYear: founded_year ?? null,
     };
 
     log('step6', 'Generating AI analysis');

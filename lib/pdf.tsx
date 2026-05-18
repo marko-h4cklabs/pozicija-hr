@@ -3,7 +3,7 @@ import { Document, Page, Text, View, StyleSheet, Link } from '@react-pdf/rendere
 import { Report } from '@/types';
 import { getScoreLabel, getScoreColor } from '@/lib/scoring';
 import { metaAdsUrl } from '@/lib/ads';
-import { calcRevenueLoss } from '@/lib/revenue';
+import { parseRevenueForDisplay } from '@/lib/revenue';
 
 const C = {
   dark: '#0F172A',
@@ -152,12 +152,14 @@ export function ReportPDF({ report }: Props) {
 
   const hasAdsData = all.some((b) => b.hasGoogleAds !== undefined);
 
-  const { monthlyLoss, annualLoss } = calcRevenueLoss(
-    subject,
-    competitors,
-    report.report_data.businessNiche,
-    report.report_data.annualRevenue,
-  );
+  const revenueDisplay = parseRevenueForDisplay(report.report_data.aiAnalysis);
+  const fmt = (n: number) => n.toLocaleString('hr-HR');
+  const monthlyStr = revenueDisplay
+    ? (revenueDisplay.monthlyLow === revenueDisplay.monthlyHigh
+        ? `${fmt(revenueDisplay.monthlyLow)} EUR`
+        : `${fmt(revenueDisplay.monthlyLow)} – ${fmt(revenueDisplay.monthlyHigh)} EUR`)
+    : null;
+  const annualStr = revenueDisplay ? `${fmt(revenueDisplay.annualHigh)} EUR` : null;
 
   const now = new Date().toLocaleDateString('hr-HR', {
     timeZone: 'Europe/Zagreb',
@@ -275,29 +277,27 @@ export function ReportPDF({ report }: Props) {
           </View>
 
           {/* Revenue Gap */}
-          <View style={[s.section, { marginBottom: 20 }]}>
-            <Text style={s.sectionTitle}>Potencijalni prihod koji ostavljate na stolu</Text>
-            <View style={s.revenueBox}>
-              <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
-                <Text style={s.revenueEyebrow}>UPOZORENJE</Text>
-                <Text style={s.revenueTitle}>Procijenjeni izgubljeni prihod zbog slabe online pozicije</Text>
-              </View>
-              <View style={s.revenueGrid}>
-                <View style={s.revenueCell}>
-                  <Text style={s.revenueCellLabel}>MJESEČNI GUBITAK</Text>
-                  <Text style={[s.revenueAmount, { color: C.orange }]}>
-                    {monthlyLoss.toLocaleString('hr-HR')} EUR
-                  </Text>
+          {monthlyStr && annualStr && (
+            <View style={[s.section, { marginBottom: 20 }]}>
+              <Text style={s.sectionTitle}>Potencijalni prihod koji ostavljate na stolu</Text>
+              <View style={s.revenueBox}>
+                <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
+                  <Text style={s.revenueEyebrow}>UPOZORENJE</Text>
+                  <Text style={s.revenueTitle}>Procijenjeni izgubljeni prihod zbog slabe online pozicije</Text>
                 </View>
-                <View style={s.revenueCellLast}>
-                  <Text style={s.revenueCellLabel}>GODIŠNJI GUBITAK</Text>
-                  <Text style={[s.revenueAmount, { color: C.red }]}>
-                    {annualLoss.toLocaleString('hr-HR')} EUR
-                  </Text>
+                <View style={s.revenueGrid}>
+                  <View style={s.revenueCell}>
+                    <Text style={s.revenueCellLabel}>MJESEČNI GUBITAK</Text>
+                    <Text style={[s.revenueAmount, { color: C.orange }]}>{monthlyStr}</Text>
+                  </View>
+                  <View style={s.revenueCellLast}>
+                    <Text style={s.revenueCellLabel}>GODIŠNJI GUBITAK</Text>
+                    <Text style={[s.revenueAmount, { color: C.red }]}>{annualStr}</Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Analysis */}
           {aiSections.length > 0 && (

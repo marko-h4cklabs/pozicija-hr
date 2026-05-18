@@ -45,8 +45,12 @@ export async function POST(req: NextRequest) {
   const weakness = extractWeakness(aiAnalysis);
   const monthlyLoss = extractMonthlyLoss(aiAnalysis);
 
+  const ownerFullName = report.report_data.ownerName ?? null;
+  const ownerFirstName = ownerFullName ? ownerFullName.trim().split(/\s+/)[0] : null;
+
   const dataLines = [
     `Naziv tvrtke: ${report.business_name}`,
+    ownerFirstName ? `Ime vlasnika/direktora: ${ownerFirstName}` : null,
     `Rezultat: ${subject.totalScore}/100`,
     topCompetitor
       ? `Glavni konkurent: ${topCompetitor.name} (rezultat: ${topCompetitor.totalScore}/100)`
@@ -62,7 +66,9 @@ export async function POST(req: NextRequest) {
     `Podaci:\n${dataLines}\n\n` +
     `PRAVILA (strogo ih se drži):\n` +
     `- Maksimalno 4 rečenice ukupno\n` +
-    `- Počni s "Bok,"\n` +
+    (ownerFirstName
+      ? `- Počni s "Bok ${ownerFirstName},"\n`
+      : `- Počni s "Bok,"\n`) +
     `- Rečenica 1: Jedna konkretna činjenica koja zaboli — koristi pravo ime konkurenta i jedan pravi broj\n` +
     `- Rečenica 2: Napomeni da si napravio nešto konkretno za njih (ne kaži što je)\n` +
     `- Rečenica 3: Minimalan commitment — napiši točno: "Traje 90 sekundi pogledati."\n` +
