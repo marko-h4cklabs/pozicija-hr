@@ -26,6 +26,7 @@ interface Props {
 
 interface ScrapedPreview {
   name: string;
+  googleMapsName: string;
   ownerName: string;
   phoneNumber: string;
   city: string;
@@ -153,6 +154,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
       setPreview({
         name: data.name ?? '',
+        googleMapsName: '',
         ownerName: data.ownerName ?? '',
         phoneNumber: data.phoneNumber ?? '',
         city: data.city ?? '',
@@ -208,6 +210,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         revenue_growth: preview.revenueGrowth ?? null,
         financial_history: preview.financialHistory.length > 0 ? preview.financialHistory : null,
         founded_year: preview.foundedYear || null,
+        business_maps_name: preview.googleMapsName.trim() || null,
         manual_competitors: filled,
       };
     } else {
@@ -474,6 +477,24 @@ export default function AdminClient({ reports, justPublished }: Props) {
                         className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
                         required
                       />
+                    </div>
+
+                    {/* Google Maps name override */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                        Google Maps naziv{' '}
+                        <span className="normal-case font-normal text-slate-400">(opcionalno)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={preview.googleMapsName}
+                        onChange={(e) => setPreview((p) => p ? { ...p, googleMapsName: e.target.value } : p)}
+                        placeholder="npr. Lovrec Hortikultura"
+                        className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Popuni ako se naziv na Google Mapsu razlikuje od pravnog naziva.
+                      </p>
                     </div>
 
                     {/* Owner name */}

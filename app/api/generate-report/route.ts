@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
       financial_history,
       founded_year,
       manual_competitors,
+      business_maps_name,
     } = body as {
       business_name: string;
       business_url: string;
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       financial_history?: import('@/types').FinancialYear[] | null;
       founded_year?: string | null;
       manual_competitors?: ManualCompetitor[];
+      business_maps_name?: string | null;
     };
 
     log('init', 'Request received', { business_name, business_url, business_city, business_niche });
@@ -107,11 +109,11 @@ export async function POST(req: NextRequest) {
     log('init', `Manual competitors: ${manuals.length}`);
 
     // ── Step 1: Search for subject ───────────────────────────────────────────
-    log('step1', `Searching subject: "${business_name}" in "${business_city}" (${business_niche})`);
+    log('step1', `Searching subject: "${business_name}" in "${business_city}" (${business_niche})${business_maps_name ? ` [maps override: "${business_maps_name}"]` : ''}`);
 
     let subjectPlaceId: string | null = null;
     try {
-      const result = await searchBusiness(business_name, business_city, business_niche);
+      const result = await searchBusiness(business_name, business_city, business_niche, business_maps_name ?? null);
       subjectPlaceId = result.placeId;
       log('step1', `Subject place_id: ${subjectPlaceId ?? 'NOT FOUND'}`);
     } catch (e) {
