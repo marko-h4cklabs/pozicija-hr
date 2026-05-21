@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import { Report } from '@/types';
+import { trackOpen } from '@/lib/tracking';
 import Navbar from '@/components/Navbar';
 import ScoreBadge from '@/components/ScoreBadge';
 import ComparisonTable from '@/components/ComparisonTable';
@@ -10,7 +11,6 @@ import RevenueGap from '@/components/RevenueGap';
 import CTASection from '@/components/CTASection';
 import Footer from '@/components/Footer';
 import FirstStepRecommendation from '@/components/FirstStepRecommendation';
-import TrackOpen from './TrackOpen';
 
 interface Props {
   params: { slug: string };
@@ -41,13 +41,26 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const report = await getPublishedReport(params.slug);
   if (!report) return notFound();
 
-  const { subject, competitors, aiAnalysis, firstStep } = report.report_data;
-  const introVideoUrl = process.env.NEXT_PUBLIC_INTRO_VIDEO_URL;
   const isPreview = searchParams.preview === '1';
 
+  // Server-side tracking: fires on every real load, no client-side deduplication issues
+  if (!isPreview) {
+    await trackOpen(
+      report.id,
+      report.slug,
+      report.business_name,
+      report.business_city,
+      report.open_count ?? 0,
+      report.opened_at,
+    );
+  }
+
+  const { subject, competitors, aiAnalysis, firstStep } = report.report_data;
+  const introVideoUrl = process.env.NEXT_PUBLIC_INTRO_VIDEO_URL;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      {!isPreview && <TrackOpen slug={report.slug} />}
+    // pb-20 sm:pb-0: prevents fixed mobile CTA bar from covering bottom content
+    <div className="min-h-screen flex flex-col pb-20 sm:pb-0">
       <Navbar />
 
       <ScoreBadge
@@ -56,12 +69,12 @@ export default async function ReportPage({ params, searchParams }: Props) {
       />
 
       <main className="flex-1 bg-white">
-        <div className="max-w-5xl mx-auto px-4 py-10 space-y-10">
+        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8 sm:space-y-10">
 
           {introVideoUrl && <IntroVideo videoUrl={introVideoUrl} />}
 
           <section>
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Usporedba s konkurencijom</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3 sm:mb-4">Usporedba s konkurencijom</h2>
             <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <ComparisonTable
                 subject={subject}

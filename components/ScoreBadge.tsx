@@ -51,7 +51,7 @@ export default function ScoreBadge({ businessName, score }: Props) {
     <div className="bg-[#0F172A] py-10 px-6 text-center">
       <h1 className="text-white text-3xl sm:text-4xl font-bold mb-4">{businessName}</h1>
 
-      <div className="w-full max-w-xs sm:max-w-sm mx-auto">
+      <div className="w-full max-w-[320px] sm:max-w-sm mx-auto">
         <svg
           viewBox="0 0 300 188"
           className="w-full"
@@ -156,7 +156,7 @@ export default function ScoreBadge({ businessName, score }: Props) {
             textAnchor="middle"
             dominantBaseline="middle"
             fill="white"
-            fontSize="36"
+            fontSize="44"
             fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif"
             fontWeight="700"
             letterSpacing="-1"
@@ -180,7 +180,7 @@ export default function ScoreBadge({ businessName, score }: Props) {
         </svg>
       </div>
 
-      <p className="font-semibold text-base sm:text-lg mt-1" style={{ color }}>
+      <p className="font-semibold text-sm sm:text-base mt-2 text-center" style={{ color }}>
         {label}
       </p>
     </div>
