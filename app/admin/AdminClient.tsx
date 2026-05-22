@@ -131,6 +131,13 @@ export default function AdminClient({ reports, justPublished }: Props) {
       return;
     }
 
+    // No CW URL — skip scraping, go directly to manual with website pre-filled
+    if (!companyWallUrl.trim()) {
+      setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+      setStep('manual');
+      return;
+    }
+
     setScraping(true);
     try {
       const res = await fetch('/api/scrape-companywall', {
@@ -148,7 +155,6 @@ export default function AdminClient({ reports, justPublished }: Props) {
           business_name: prev.business_name || hint,
         }));
         setStep('manual');
-        setError(data.error ?? 'Scraping nije uspio. Unesi podatke ručno.');
         return;
       }
 
@@ -176,7 +182,6 @@ export default function AdminClient({ reports, justPublished }: Props) {
         business_name: prev.business_name || hint,
       }));
       setStep('manual');
-      setError('Nije moguće dohvatiti CompanyWall. Unesi podatke ručno.');
     } finally {
       setScraping(false);
     }
@@ -395,7 +400,8 @@ export default function AdminClient({ reports, justPublished }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-1">
-                      CompanyWall URL *
+                      CompanyWall URL{' '}
+                      <span className="font-normal text-slate-400">(opcionalno)</span>
                     </label>
                     <input
                       type="url"
@@ -403,7 +409,6 @@ export default function AdminClient({ reports, justPublished }: Props) {
                       onChange={(e) => setCompanyWallUrl(e.target.value)}
                       placeholder="https://www.companywall.hr/tvrtka/naziv/..."
                       className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
-                      required
                     />
                     <p className="text-xs text-slate-400 mt-1">
                       Idi na companywall.hr, pronađi tvrtku i zalijepi cijeli URL.
@@ -432,7 +437,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
                   disabled={scraping}
                   className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
                 >
-                  {scraping ? 'Dohvaćanje podataka...' : 'Dohvati podatke s CompanyWall'}
+                  {scraping ? 'Dohvaćanje podataka...' : companyWallUrl.trim() ? 'Dohvati podatke s CompanyWall' : 'Nastavi'}
                 </button>
               </form>
             )}
@@ -625,12 +630,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
             {/* ── STEP: MANUAL FALLBACK ────────────────────────────────────── */}
             {step === 'manual' && (
               <form onSubmit={handleGenerate} className="space-y-5">
-                {error && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
-                    <span className="text-amber-500 text-sm mt-0.5">⚠</span>
-                    <p className="text-amber-800 text-sm">{error}</p>
-                  </div>
-                )}
+                {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

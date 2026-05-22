@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
 
     const [googleAdsResults, ctaResult] = await Promise.all([
       Promise.all(allNames.map((name) => checkGoogleAds(name))),
-      checkHasCta(allWebsites[0]),
+      allWebsites[0] ? checkHasCta(allWebsites[0]) : Promise.resolve(null),
     ]);
 
     allNames.forEach((name, i) =>
