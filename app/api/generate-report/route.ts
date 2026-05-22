@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       founded_year,
       manual_competitors,
       business_maps_name,
+      subject_place_id,
     } = body as {
       business_name: string;
       business_url: string;
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
       founded_year?: string | null;
       manual_competitors?: ManualCompetitor[];
       business_maps_name?: string | null;
+      subject_place_id?: string | null;
     };
 
     log('init', 'Request received', { business_name, business_url, business_city, business_niche });
@@ -108,20 +110,24 @@ export async function POST(req: NextRequest) {
     }
     log('init', `Manual competitors: ${manuals.length}`);
 
-    // ── Step 1: Search for subject ───────────────────────────────────────────
-    log('step1', `Searching subject: "${business_name}" in "${business_city}" (${business_niche})${business_maps_name ? ` [maps override: "${business_maps_name}"]` : ''}`);
+    // ── Step 1: Resolve subject place_id ────────────────────────────────────
+    let subjectPlaceId: string | null = subject_place_id ?? null;
 
-    let subjectPlaceId: string | null = null;
-    try {
-      const result = await searchBusiness(business_name, business_city, business_niche, business_maps_name ?? null);
-      subjectPlaceId = result.placeId;
-      log('step1', `Subject place_id: ${subjectPlaceId ?? 'NOT FOUND'}`);
-    } catch (e) {
-      err('step1', 'searchBusiness threw', e instanceof Error ? e.message : e);
-      return NextResponse.json(
-        { error: 'Greška pri pretraživanju vašeg poduzeća na Google Places.', step: 'search_subject' },
-        { status: 502 }
-      );
+    if (subjectPlaceId) {
+      log('step1', `Using provided place_id: ${subjectPlaceId}`);
+    } else {
+      log('step1', `Searching subject: "${business_name}" in "${business_city}" (${business_niche})${business_maps_name ? ` [maps override: "${business_maps_name}"]` : ''}`);
+      try {
+        const result = await searchBusiness(business_name, business_city, business_niche, business_maps_name ?? null);
+        subjectPlaceId = result.placeId;
+        log('step1', `Subject place_id: ${subjectPlaceId ?? 'NOT FOUND'}`);
+      } catch (e) {
+        err('step1', 'searchBusiness threw', e instanceof Error ? e.message : e);
+        return NextResponse.json(
+          { error: 'Greška pri pretraživanju vašeg poduzeća na Google Places.', step: 'search_subject' },
+          { status: 502 }
+        );
+      }
     }
 
     // ── Step 2: Search Places for manual competitors ─────────────────────────

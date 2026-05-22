@@ -27,6 +27,7 @@ interface Props {
 interface ScrapedPreview {
   name: string;
   googleMapsName: string;
+  googleMapsPlaceId: string | null;
   ownerName: string;
   phoneNumber: string;
   city: string;
@@ -38,6 +39,7 @@ interface ScrapedPreview {
   employees: number | null;
   foundedYear: string;
   financialHistory: FinancialYear[];
+  dataSources: { hasCompanyWall: boolean; hasGoogleMaps: boolean };
 }
 
 type FormStep = 'input' | 'preview' | 'manual';
@@ -66,6 +68,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
   // ── Input step ───────────────────────────────────────────────────────────
   const [companyWallUrl, setCompanyWallUrl] = useState('');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
 
   // ── Preview step (scraped + editable) ───────────────────────────────────
@@ -120,7 +123,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
     );
   }
 
-  // ── Step 1: Scrape CompanyWall ───────────────────────────────────────────
+  // ── Step 1: Scrape data sources ─────────────────────────────────────────
   async function handleScrape(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -131,8 +134,8 @@ export default function AdminClient({ reports, justPublished }: Props) {
       return;
     }
 
-    // No CW URL — skip scraping, go directly to manual with website pre-filled
-    if (!companyWallUrl.trim()) {
+    // No scraping sources → go directly to manual
+    if (!companyWallUrl.trim() && !googleMapsUrl.trim()) {
       setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
       setStep('manual');
       return;
@@ -140,14 +143,38 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
     setScraping(true);
     try {
-      const res = await fetch('/api/scrape-companywall', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: companyWallUrl }),
-      });
-      const data = await res.json();
+      const [cwResult, mapsResult] = await Promise.allSettled([
+        companyWallUrl.trim()
+          ? fetch('/api/scrape-companywall', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: companyWallUrl }),
+            })
+              .then((r) => r.json())
+              .catch(() => null)
+          : Promise.resolve(null),
+        googleMapsUrl.trim()
+          ? fetch('/api/scrape-googlemaps', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: googleMapsUrl }),
+            })
+              .then((r) => r.json())
+              .catch(() => null)
+          : Promise.resolve(null),
+      ]);
 
-      if (!res.ok || data.error) {
+      const cw =
+        cwResult.status === 'fulfilled' && cwResult.value && !cwResult.value.error
+          ? cwResult.value
+          : null;
+      const maps =
+        mapsResult.status === 'fulfilled' && mapsResult.value && !mapsResult.value.error
+          ? mapsResult.value
+          : null;
+
+      // Both failed → silent fallback to manual
+      if (!cw && !maps) {
         const hint = nameHintFromUrl(companyWallUrl);
         setManualForm((prev) => ({
           ...prev,
@@ -158,20 +185,23 @@ export default function AdminClient({ reports, justPublished }: Props) {
         return;
       }
 
+      // Merge: Google Maps for identity/location, CompanyWall for financials
       setPreview({
-        name: data.name ?? '',
+        name: maps?.name ?? cw?.name ?? '',
         googleMapsName: '',
-        ownerName: data.ownerName ?? '',
-        phoneNumber: data.phoneNumber ?? '',
-        city: data.city ?? '',
-        niche: data.niche ?? 'Drugo',
-        annualRevenue: data.annualRevenue ? String(data.annualRevenue) : '',
-        revenueGrowth: data.revenueGrowth ?? null,
-        companySize: data.companySize ?? '',
-        bonitetGrade: data.bonitetGrade ?? '',
-        employees: data.employees ?? null,
-        foundedYear: data.foundedYear ?? '',
-        financialHistory: data.financialHistory ?? [],
+        googleMapsPlaceId: maps?.placeId ?? null,
+        ownerName: cw?.ownerName ?? '',
+        phoneNumber: cw?.phoneNumber ?? maps?.phoneNumber ?? '',
+        city: maps?.city ?? cw?.city ?? '',
+        niche: cw?.niche ?? 'Drugo',
+        annualRevenue: cw?.annualRevenue ? String(cw.annualRevenue) : '',
+        revenueGrowth: cw?.revenueGrowth ?? null,
+        companySize: cw?.companySize ?? '',
+        bonitetGrade: cw?.bonitetGrade ?? '',
+        employees: cw?.employees ?? null,
+        foundedYear: cw?.foundedYear ?? '',
+        financialHistory: cw?.financialHistory ?? [],
+        dataSources: { hasCompanyWall: !!cw, hasGoogleMaps: !!maps },
       });
       setStep('preview');
     } catch {
@@ -216,6 +246,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         financial_history: preview.financialHistory.length > 0 ? preview.financialHistory : null,
         founded_year: preview.foundedYear || null,
         business_maps_name: preview.googleMapsName.trim() || null,
+        subject_place_id: preview.googleMapsPlaceId || null,
         manual_competitors: filled,
       };
     } else {
@@ -416,7 +447,24 @@ export default function AdminClient({ reports, justPublished }: Props) {
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-1">
-                      Web stranica tvrtke (opcionalno)
+                      Google Maps URL{' '}
+                      <span className="font-normal text-slate-400">(opcionalno)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={googleMapsUrl}
+                      onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                      placeholder="https://www.google.com/maps/place/..."
+                      className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Pronađi tvrtku na Google Mapsu i zalijepi URL.
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                      Web stranica tvrtke{' '}
+                      <span className="font-normal text-slate-400">(opcionalno)</span>
                     </label>
                     <input
                       type="url"
@@ -437,7 +485,11 @@ export default function AdminClient({ reports, justPublished }: Props) {
                   disabled={scraping}
                   className="bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 transition-colors text-white font-bold py-3 px-8 rounded-xl"
                 >
-                  {scraping ? 'Dohvaćanje podataka...' : companyWallUrl.trim() ? 'Dohvati podatke s CompanyWall' : 'Nastavi'}
+                  {scraping
+                    ? 'Dohvaćanje podataka...'
+                    : (companyWallUrl.trim() || googleMapsUrl.trim())
+                      ? 'Dohvati podatke'
+                      : 'Nastavi'}
                 </button>
               </form>
             )}
@@ -449,11 +501,21 @@ export default function AdminClient({ reports, justPublished }: Props) {
                 <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-4">
                   {/* Header row */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-green-600 text-lg font-bold">✓</span>
                       <span className="text-green-800 font-semibold text-sm">
-                        Podaci dohvaćeni s CompanyWall — provjeri i ispravi po potrebi
+                        Podaci dohvaćeni — provjeri i ispravi po potrebi
                       </span>
+                      {preview.dataSources.hasCompanyWall && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          CompanyWall
+                        </span>
+                      )}
+                      {preview.dataSources.hasGoogleMaps && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                          Google Maps
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {preview.companySize && (
