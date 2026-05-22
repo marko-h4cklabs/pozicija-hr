@@ -157,7 +157,11 @@ export function ReportPDF({ report }: Props) {
         ? `${fmt(revenueDisplay.monthlyLow)} EUR`
         : `${fmt(revenueDisplay.monthlyLow)} – ${fmt(revenueDisplay.monthlyHigh)} EUR`)
     : null;
-  const annualStr = revenueDisplay ? `${fmt(revenueDisplay.annualHigh)} EUR` : null;
+  const annualStr = revenueDisplay
+    ? (revenueDisplay.annualLow === revenueDisplay.annualHigh
+        ? `${fmt(revenueDisplay.annualHigh)} EUR`
+        : `${fmt(revenueDisplay.annualLow)} – ${fmt(revenueDisplay.annualHigh)} EUR`)
+    : null;
 
   const now = new Date().toLocaleDateString('hr-HR', {
     timeZone: 'Europe/Zagreb',

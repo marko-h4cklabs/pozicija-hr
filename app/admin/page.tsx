@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { Report } from '@/types';
+import { Report, NicheTemplate } from '@/types';
 import AdminClient from './AdminClient';
 
 interface Props {
@@ -21,9 +21,16 @@ export default async function AdminPage({ searchParams }: Props) {
     .order('created_at', { ascending: false })
     .returns<Report[]>();
 
+  const { data: templates } = await supabaseAdmin
+    .from('niche_templates')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .returns<NicheTemplate[]>();
+
   return (
     <AdminClient
       reports={reports ?? []}
+      templates={templates ?? []}
       justPublished={searchParams.published === '1'}
     />
   );

@@ -43,11 +43,17 @@ export function calcRevenueLoss(
 export interface RevenueDisplay {
   monthlyLow: number;
   monthlyHigh: number;
+  annualLow: number;
   annualHigh: number;
 }
 
 function parseCrNum(s: string): number {
   return parseInt(s.replace(/\./g, ''), 10);
+}
+
+// Annual is always monthly * 12 — consistent across all code paths
+function fromMonthly(lo: number, hi: number): RevenueDisplay {
+  return { monthlyLow: lo, monthlyHigh: hi, annualLow: lo * 12, annualHigh: hi * 12 };
 }
 
 export function parseRevenueForDisplay(aiAnalysis: string | null | undefined): RevenueDisplay | null {
@@ -66,7 +72,7 @@ export function parseRevenueForDisplay(aiAnalysis: string | null | undefined): R
   const section = aiAnalysis.slice(start + SECTION.length, end);
   const lower = section.toLowerCase();
 
-  // Try "između X i Y EUR" or "X do Y EUR" or "X - Y EUR" patterns first
+  // Try "X do Y EUR" / "X - Y EUR" / "X – Y EUR" range patterns first
   const rangeRe = /(\d{1,3}(?:\.\d{3})*)\s*(?:do|-|–|i)\s*(\d{1,3}(?:\.\d{3})*)\s*EUR/gi;
   const ranges = Array.from(section.matchAll(rangeRe));
 
@@ -75,13 +81,14 @@ export function parseRevenueForDisplay(aiAnalysis: string | null | undefined): R
     const lo = parseCrNum(first[1]);
     const hi = parseCrNum(first[2]);
     if (!isNaN(lo) && !isNaN(hi) && lo > 0 && hi > 0) {
-      // Is this range monthly or annual?
-      const after = section.slice((first.index ?? 0) + first[0].length, (first.index ?? 0) + first[0].length + 40).toLowerCase();
+      const after = section.slice(
+        (first.index ?? 0) + first[0].length,
+        (first.index ?? 0) + first[0].length + 40
+      ).toLowerCase();
       const isAnnual = after.includes('god') || (lower.includes('godišnje') && !lower.includes('mjesečno'));
-      if (isAnnual) {
-        return { monthlyLow: Math.round(lo / 12), monthlyHigh: Math.round(hi / 12), annualHigh: hi };
-      }
-      return { monthlyLow: lo, monthlyHigh: hi, annualHigh: hi * 12 };
+      return isAnnual
+        ? fromMonthly(Math.round(lo / 12), Math.round(hi / 12))
+        : fromMonthly(lo, hi);
     }
   }
 
@@ -96,36 +103,28 @@ export function parseRevenueForDisplay(aiAnalysis: string | null | undefined): R
   const mjsIdx = lower.indexOf('mjes');
   const godIdx = lower.indexOf('god');
 
-  const monthly = mjsIdx !== -1 ? amounts.filter(a => Math.abs(a.index - mjsIdx) < 120) : [];
-  const annual = godIdx !== -1 ? amounts.filter(a => Math.abs(a.index - godIdx) < 120) : [];
+  const mAmts = mjsIdx !== -1 ? amounts.filter(a => Math.abs(a.index - mjsIdx) < 120) : [];
+  const aAmts = godIdx !== -1 ? amounts.filter(a => Math.abs(a.index - godIdx) < 120) : [];
 
-  // If we have context-tagged amounts
-  if (monthly.length > 0) {
-    const lo = Math.min(...monthly.map(a => a.value));
-    const hi = Math.max(...monthly.map(a => a.value));
-    const annHi = annual.length > 0 ? Math.max(...annual.map(a => a.value)) : hi * 12;
-    return { monthlyLow: lo, monthlyHigh: hi, annualHigh: annHi };
+  if (mAmts.length > 0) {
+    return fromMonthly(Math.min(...mAmts.map(a => a.value)), Math.max(...mAmts.map(a => a.value)));
   }
 
-  if (annual.length > 0) {
-    const hi = Math.max(...annual.map(a => a.value));
-    return { monthlyLow: Math.round(hi / 12), monthlyHigh: Math.round(hi / 12), annualHigh: hi };
+  if (aAmts.length > 0) {
+    const lo = Math.min(...aAmts.map(a => a.value));
+    const hi = Math.max(...aAmts.map(a => a.value));
+    return fromMonthly(Math.round(lo / 12), Math.round(hi / 12));
   }
 
-  // No context — split first half / second half heuristic
+  // No context — first half treated as monthly
   if (amounts.length >= 2) {
     const mid = Math.ceil(amounts.length / 2);
-    const mAmts = amounts.slice(0, mid);
-    const aAmts = amounts.slice(mid);
-    const mLo = Math.min(...mAmts.map(a => a.value));
-    const mHi = Math.max(...mAmts.map(a => a.value));
-    const annHi = Math.max(...aAmts.map(a => a.value));
-    return { monthlyLow: mLo, monthlyHigh: mHi, annualHigh: annHi };
+    const mPart = amounts.slice(0, mid);
+    return fromMonthly(Math.min(...mPart.map(a => a.value)), Math.max(...mPart.map(a => a.value)));
   }
 
-  // Single amount — treat as monthly
   const n = amounts[0].value;
-  if (n > 0) return { monthlyLow: n, monthlyHigh: n, annualHigh: n * 12 };
+  if (n > 0) return fromMonthly(n, n);
 
   return null;
 }

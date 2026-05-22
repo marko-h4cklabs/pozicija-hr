@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Report, ManualCompetitor, FinancialYear } from '@/types';
+import { Report, ManualCompetitor, FinancialYear, NicheTemplate } from '@/types';
 
 const NICHES = [
   'Restoran',
@@ -21,6 +21,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://pozicija-hr.com';
 
 interface Props {
   reports: Report[];
+  templates: NicheTemplate[];
   justPublished?: boolean;
 }
 
@@ -44,7 +45,7 @@ interface ScrapedPreview {
 
 type FormStep = 'input' | 'preview' | 'manual';
 
-export default function AdminClient({ reports, justPublished }: Props) {
+export default function AdminClient({ reports, templates: initialTemplates, justPublished }: Props) {
   const router = useRouter();
 
   // ── Shared state ─────────────────────────────────────────────────────────
@@ -56,6 +57,23 @@ export default function AdminClient({ reports, justPublished }: Props) {
   const [copiedSlug, setCopiedSlug] = useState('');
   const [reportList, setReportList] = useState<Report[]>(reports);
   const [deletingSlug, setDeletingSlug] = useState('');
+
+  // ── Templates state ───────────────────────────────────────────────────────
+  const [templateList, setTemplateList] = useState<NicheTemplate[]>(initialTemplates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [loadedTemplateNiche, setLoadedTemplateNiche] = useState('');
+  const [deletingTemplateId, setDeletingTemplateId] = useState('');
+  const [templateModal, setTemplateModal] = useState<{
+    open: boolean;
+    name: string;
+    niche: string;
+    competitors: ManualCompetitor[];
+    saving: boolean;
+    error: string;
+  }>({
+    open: false, name: '', niche: NICHES[0], competitors: [{ name: '', url: '' }],
+    saving: false, error: '',
+  });
 
   // ── WhatsApp modal ───────────────────────────────────────────────────────
   const [waModal, setWaModal] = useState<{
@@ -136,7 +154,11 @@ export default function AdminClient({ reports, justPublished }: Props) {
 
     // No scraping sources → go directly to manual
     if (!companyWallUrl.trim() && !googleMapsUrl.trim()) {
-      setManualForm((prev) => ({ ...prev, business_url: websiteUrl }));
+      setManualForm((prev) => ({
+        ...prev,
+        business_url: websiteUrl,
+        business_niche: prev.business_niche || loadedTemplateNiche || '',
+      }));
       setStep('manual');
       return;
     }
@@ -180,6 +202,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
           ...prev,
           business_url: websiteUrl,
           business_name: prev.business_name || hint,
+          business_niche: prev.business_niche || loadedTemplateNiche || '',
         }));
         setStep('manual');
         return;
@@ -210,6 +233,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
         ...prev,
         business_url: websiteUrl,
         business_name: prev.business_name || hint,
+        business_niche: prev.business_niche || loadedTemplateNiche || '',
       }));
       setStep('manual');
     } finally {
@@ -340,9 +364,129 @@ export default function AdminClient({ reports, justPublished }: Props) {
     return new Date(iso).toLocaleString('hr-HR', { timeZone: 'Europe/Zagreb' });
   }
 
+  // ── Template helpers ──────────────────────────────────────────────────────
+  function loadTemplate(t: NicheTemplate) {
+    setManualCompetitors(
+      t.competitors.length > 0
+        ? t.competitors.map(c => ({ name: c.name, url: c.url || '' }))
+        : [{ name: '', url: '' }]
+    );
+    setSelectedTemplateId(t.id);
+    setLoadedTemplateNiche(t.niche);
+    if (step === 'preview') setPreview(p => p ? { ...p, niche: t.niche } : p);
+    if (step === 'manual') setManualForm(p => ({ ...p, business_niche: t.niche }));
+  }
+
+  function clearTemplate() {
+    setSelectedTemplateId('');
+    setLoadedTemplateNiche('');
+    setManualCompetitors([{ name: '', url: '' }]);
+  }
+
+  function openTemplateModal() {
+    setTemplateModal({
+      open: true, name: '', niche: NICHES[0],
+      competitors: [{ name: '', url: '' }],
+      saving: false, error: '',
+    });
+  }
+
+  function closeTemplateModal() {
+    setTemplateModal(p => ({ ...p, open: false }));
+  }
+
+  async function saveTemplate() {
+    const filled = templateModal.competitors.filter(c => c.name.trim());
+    if (!templateModal.name.trim()) {
+      setTemplateModal(p => ({ ...p, error: 'Naziv predloška je obavezan.' }));
+      return;
+    }
+    setTemplateModal(p => ({ ...p, saving: true, error: '' }));
+    try {
+      const res = await fetch('/api/niche-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: templateModal.name.trim(),
+          niche: templateModal.niche,
+          competitors: filled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Greška');
+      setTemplateList(prev => [data, ...prev]);
+      closeTemplateModal();
+    } catch (e) {
+      setTemplateModal(p => ({
+        ...p, saving: false,
+        error: e instanceof Error ? e.message : 'Greška pri spremanju.',
+      }));
+    }
+  }
+
+  async function deleteTemplate(id: string) {
+    setDeletingTemplateId(id);
+    try {
+      const res = await fetch(`/api/niche-templates/${id}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Greška'); return; }
+      setTemplateList(prev => prev.filter(t => t.id !== id));
+      if (selectedTemplateId === id) clearTemplate();
+    } catch { alert('Greška pri brisanju.'); }
+    finally { setDeletingTemplateId(''); }
+  }
+
+  function addTemplateCompetitor() {
+    if (templateModal.competitors.length < 4) {
+      setTemplateModal(p => ({ ...p, competitors: [...p.competitors, { name: '', url: '' }] }));
+    }
+  }
+
+  function removeTemplateCompetitor(i: number) {
+    if (templateModal.competitors.length <= 1) return;
+    setTemplateModal(p => ({ ...p, competitors: p.competitors.filter((_, idx) => idx !== i) }));
+  }
+
+  function updateTemplateCompetitor(i: number, field: keyof ManualCompetitor, value: string) {
+    setTemplateModal(p => ({
+      ...p,
+      competitors: p.competitors.map((c, idx) => idx === i ? { ...c, [field]: value } : c),
+    }));
+  }
+
   // ── Competitors section (shared) ─────────────────────────────────────────
   const competitorsSection = (
     <div className="border-t border-slate-100 pt-5">
+      {/* Template loader */}
+      {templateList.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <select
+            value={selectedTemplateId}
+            onChange={e => {
+              const t = templateList.find(tpl => tpl.id === e.target.value);
+              if (t) loadTemplate(t);
+              else if (!e.target.value) clearTemplate();
+            }}
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+          >
+            <option value="">Učitaj predložak...</option>
+            {templateList.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.niche})
+              </option>
+            ))}
+          </select>
+          {selectedTemplateId && (
+            <button
+              type="button"
+              onClick={clearTemplate}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors text-lg font-bold"
+              title="Ukloni predložak"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-sm font-semibold text-slate-700">
@@ -420,7 +564,51 @@ export default function AdminClient({ reports, justPublished }: Props) {
           </div>
         )}
 
-        {/* Section A: Generate report */}
+        {/* Section A: Niche templates */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-slate-800">Predlošci niša</h2>
+            <button
+              onClick={openTemplateModal}
+              className="text-sm font-semibold px-4 py-2 rounded-xl bg-[#F97316] hover:bg-orange-600 text-white transition-colors"
+            >
+              + Izradi predložak
+            </button>
+          </div>
+          {templateList.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 px-6 py-8 text-center">
+              <p className="text-slate-400 text-sm">Nema predložaka još. Izradi predložak da ubrzaš unos konkurenata.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {templateList.map(t => (
+                <div key={t.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 text-sm truncate">{t.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {t.niche} · {t.competitors.length} konkurent{t.competitors.length === 1 ? '' : 'a'}
+                    </p>
+                    {t.competitors.length > 0 && (
+                      <p className="text-xs text-slate-500 mt-1 truncate">
+                        {t.competitors.map(c => c.name).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => deleteTemplate(t.id)}
+                    disabled={deletingTemplateId === t.id}
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
+                    title="Obriši predložak"
+                  >
+                    {deletingTemplateId === t.id ? '…' : '🗑'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Section B: Generate report */}
         <section>
           <h2 className="text-xl font-bold text-slate-800 mb-6">Generiraj izvještaj za prospects</h2>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
@@ -781,7 +969,7 @@ export default function AdminClient({ reports, justPublished }: Props) {
           </div>
         </section>
 
-        {/* Section B: Reports table */}
+        {/* Section C: Reports table */}
         <section>
           <h2 className="text-xl font-bold text-slate-800 mb-6">
             Svi izvještaji ({reportList.length})
@@ -913,6 +1101,113 @@ export default function AdminClient({ reports, justPublished }: Props) {
           </div>
         </section>
       </div>
+
+      {/* ── Template Creation Modal ───────────────────────────────────── */}
+      {templateModal.open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          onClick={e => { if (e.target === e.currentTarget) closeTemplateModal(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800">Novi predložak niše</h3>
+              <button
+                onClick={closeTemplateModal}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Naziv predloška *</label>
+                <input
+                  type="text"
+                  value={templateModal.name}
+                  onChange={e => setTemplateModal(p => ({ ...p, name: e.target.value }))}
+                  placeholder="npr. Stomatolozi Zagreb"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Djelatnost *</label>
+                <select
+                  value={templateModal.niche}
+                  onChange={e => setTemplateModal(p => ({ ...p, niche: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                >
+                  {NICHES.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-700">Konkurenti</label>
+                  {templateModal.competitors.length < 4 && (
+                    <button
+                      type="button"
+                      onClick={addTemplateCompetitor}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      + Dodaj
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {templateModal.competitors.map((c, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={c.name}
+                        onChange={e => updateTemplateCompetitor(i, 'name', e.target.value)}
+                        placeholder={`Naziv ${i + 1}`}
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      />
+                      <input
+                        type="url"
+                        value={c.url}
+                        onChange={e => updateTemplateCompetitor(i, 'url', e.target.value)}
+                        placeholder="URL (opcionalno)"
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTemplateCompetitor(i)}
+                        disabled={templateModal.competitors.length <= 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors text-lg font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {templateModal.error && (
+                <p className="text-red-500 text-sm font-medium">{templateModal.error}</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 px-6 pb-5">
+              <button
+                onClick={saveTemplate}
+                disabled={templateModal.saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-[#F97316] hover:bg-orange-600 disabled:bg-orange-300 text-white transition-colors"
+              >
+                {templateModal.saving ? 'Spremanje...' : 'Spremi predložak'}
+              </button>
+              <button
+                onClick={closeTemplateModal}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+              >
+                Odustani
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── WhatsApp Message Modal ─────────────────────────────────────── */}
       {waModal.open && (

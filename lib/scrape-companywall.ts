@@ -92,17 +92,44 @@ function parseName(html: string): string | null {
   return null;
 }
 
+const NAME_STOPWORDS = new Set([
+  'je', 'tvrtke', 'tvrtka', 'i', 'za', 'na', 'u', 'od', 'do', 'te', 'a',
+  'ili', 'su', 'se', 'da', 'ni', 'ne', 'bio', 'ima', 'kao', 'koji', 'koja',
+  'koje', 'sa', 'po', 'pri', 'to', 'taj', 'ta', 'te',
+]);
+
+function extractPersonName(raw: string): string | null {
+  const words = raw.trim().split(/\s+/);
+  const nameWords = words.filter(
+    w => w.length >= 2 && /^[A-ZŠĐŽČĆ]/.test(w) && !NAME_STOPWORDS.has(w.toLowerCase())
+  );
+  if (nameWords.length < 2) return null;
+  return titleCase(nameWords.join(' '));
+}
+
 function parseOwnerName(html: string): string | null {
   const text = strip(html);
-  // "Trenutni direktor tvrtke je BERNARD DOMOVIĆ"
-  const p1 = /Trenutni direktor tvrtke je\s+([A-ZŠĐŽČĆ][A-ZŠĐŽČĆ\s]{3,50}?)(?=[.,\n]|$|\s{2})/i.exec(text);
-  if (p1) return titleCase(p1[1].trim());
-  // "Zastupnik: BERNARD DOMOVIĆ, direktor"
-  const p2 = /Zastupnik\s*:\s*([A-ZŠĐŽČĆ][A-ZŠĐŽČĆ\s]{3,50}?),?\s*direktor/i.exec(text);
-  if (p2) return titleCase(p2[1].trim());
-  // Generic: director label followed by UPPERCASE name
-  const p3 = /(?:direktor|vlasnik|predsjednik uprave)[^A-ZÀ-ɏ\n]{0,20}([A-ZŠĐŽČĆ]{2,}\s+[A-ZŠĐŽČĆ]{2,}(?:\s+[A-ZŠĐŽČĆ]{2,})?)/i.exec(html);
-  if (p3) return titleCase(p3[1].trim());
+
+  // "Zastupnik tvrtke je IVAN HORVAT"
+  const p1 = /Zastupnik\s+tvrtke\s+je\s+(.{2,60})(?=[.,\n]|$)/i.exec(text);
+  if (p1) { const n = extractPersonName(p1[1]); if (n) return n; }
+
+  // "Trenutni direktor tvrtke je IVAN HORVAT"
+  const p2 = /Trenutni\s+direktor\s+tvrtke\s+je\s+(.{2,60})(?=[.,\n]|$)/i.exec(text);
+  if (p2) { const n = extractPersonName(p2[1]); if (n) return n; }
+
+  // "Zastupnik: IVAN HORVAT, direktor"
+  const p3 = /Zastupnik\s*:\s*(.{2,60}?)(?:,|\s{2}|$)/i.exec(text);
+  if (p3) { const n = extractPersonName(p3[1]); if (n) return n; }
+
+  // "Direktor: ..." / "Izvršni direktor: ..." / "Vlasnik: ..."
+  const p4 = /(?:Izvršni\s+)?(?:Direktor|Vlasnik|Predsjednik\s+uprave)\s*:\s*(.{2,60})(?=[.,\n]|$)/i.exec(text);
+  if (p4) { const n = extractPersonName(p4[1]); if (n) return n; }
+
+  // Generic: UPPERCASE name after director/owner label in raw HTML
+  const p5 = /(?:direktor|vlasnik|predsjednik uprave)[^A-ZÀ-ɏ\n]{0,20}([A-ZŠĐŽČĆ]{2,}\s+[A-ZŠĐŽČĆ]{2,}(?:\s+[A-ZŠĐŽČĆ]{2,})?)/i.exec(html);
+  if (p5) return titleCase(p5[1].trim());
+
   return null;
 }
 

@@ -73,3 +73,11 @@ export interface ManualCompetitor {
   name: string;
   url: string;
 }
+
+export interface NicheTemplate {
+  id: string;
+  name: string;
+  niche: string;
+  competitors: ManualCompetitor[];
+  created_at: string;
+}

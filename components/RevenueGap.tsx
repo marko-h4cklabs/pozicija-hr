@@ -20,7 +20,10 @@ export default function RevenueGap({ aiAnalysis }: Props) {
       ? `${fmt(revenue.monthlyLow)} EUR`
       : `${fmt(revenue.monthlyLow)} – ${fmt(revenue.monthlyHigh)} EUR`;
 
-  const annualStr = `${fmt(revenue.annualHigh)} EUR`;
+  const annualStr =
+    revenue.annualLow === revenue.annualHigh
+      ? `${fmt(revenue.annualHigh)} EUR`
+      : `${fmt(revenue.annualLow)} – ${fmt(revenue.annualHigh)} EUR`;
 
   return (
     <section className="bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
