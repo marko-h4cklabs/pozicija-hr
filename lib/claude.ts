@@ -65,8 +65,8 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
         reviewCount_note: (subject.reviewCount ?? 0) >= 50
           ? 'DO NOT mention reviews - business has 50+ reviews'
           : `Only ${subject.reviewCount ?? 0} reviews — mention if relevant`,
-        totalScore: subject.totalScore,
-        credibilityScore: subject.credibilityScore,
+        rezultat_od_100: subject.totalScore,
+        kredibilitet_od_100: subject.credibilityScore,
         hasGoogleAds: subject.hasGoogleAds ?? null,
         hasSsl: subject.hasSsl ?? null,
         hasCta: subject.hasCta ?? null,
@@ -75,7 +75,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
         name: c.name,
         rating: c.rating,
         reviewCount: c.reviewCount,
-        totalScore: c.totalScore,
+        rezultat_od_100: c.totalScore,
         hasGoogleAds: c.hasGoogleAds ?? null,
       })),
       city: reportData.businessCity,
@@ -193,13 +193,13 @@ export async function generateFirstStepRecommendation(
         name: subject.name,
         rating: subject.rating,
         reviewCount: subject.reviewCount,
-        totalScore: subject.totalScore,
+        rezultat_od_100: subject.totalScore,
         hasGoogleAds: subject.hasGoogleAds ?? null,
         hasSsl: subject.hasSsl ?? null,
         hasCta: subject.hasCta ?? null,
       },
       topCompetitor: topCompetitor
-        ? { name: topCompetitor.name, totalScore: topCompetitor.totalScore, hasGoogleAds: topCompetitor.hasGoogleAds }
+        ? { name: topCompetitor.name, rezultat_od_100: topCompetitor.totalScore, hasGoogleAds: topCompetitor.hasGoogleAds }
         : null,
       city: businessCity,
       niche: businessNiche,
@@ -225,6 +225,7 @@ export async function generateFirstStepRecommendation(
     `Pravila:\n` +
     `- Piši na hrvatskom\n` +
     `- Koristi stvarne podatke iz JSON-a (prava imena, pravi brojevi)\n` +
+    `- Nikad ne koristi nazive JSON ključeva u tekstu (npr. 'rezultat_od_100', 'totalScore', 'reviewCount') — piši samo vrijednost s opisom, npr. '63 bodova' ili '47 recenzija'\n` +
     `- Bez marketinškog žargona\n` +
     `- Bez iznosa budžeta za oglase`;
 
