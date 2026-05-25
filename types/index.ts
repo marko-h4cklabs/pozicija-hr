@@ -45,20 +45,6 @@ export interface ReviewSentiment {
   prilika: string;
 }
 
-export interface BusinessProjection {
-  name: string;
-  current: number;
-  in3m: number;
-  in6m: number;
-}
-
-export interface ProjectionData {
-  subject: BusinessProjection;
-  topCompetitor: BusinessProjection;
-  gapGrowth: number;
-  marketShareLossMin: number;
-  marketShareLossMax: number;
-}
 
 export interface ReportData {
   subject: ScoredBusiness;
@@ -80,7 +66,6 @@ export interface ReportData {
   foundedYear?: string | null;
   reviews?: PlaceReview[] | null;
   reviewSentiment?: ReviewSentiment | null;
-  projectionData?: ProjectionData | null;
 }
 
 export interface Report {

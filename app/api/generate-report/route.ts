@@ -9,7 +9,6 @@ import {
 import { checkGoogleAds, checkHasCta } from '@/lib/ads';
 import { generateAiAnalysis, generateFirstStepRecommendation, generateReviewSentiment } from '@/lib/claude';
 import { calcCredibilityScore } from '@/lib/scoring';
-import { calcProjectionData } from '@/lib/projection';
 import { BusinessData, ScoredBusiness, ReportData, ManualCompetitor } from '@/types';
 
 function log(step: string, msg: string, data?: unknown) {
@@ -253,10 +252,6 @@ export async function POST(req: NextRequest) {
       : null;
     log('step5', `Review sentiment: ${reviewSentiment ? 'generated' : 'skipped'}`);
 
-    // ── Step 5.6: Projection data (pure math) ────────────────────────────────
-    const projectionData = calcProjectionData(subject, competitors, business_niche);
-    log('step5', `Projection: gapGrowth=${projectionData?.gapGrowth ?? 'N/A'}`);
-
     // ── Step 6: AI analysis ──────────────────────────────────────────────────
     const reportData: ReportData = {
       subject,
@@ -277,7 +272,6 @@ export async function POST(req: NextRequest) {
       foundedYear: founded_year ?? null,
       reviews: rawReviews.length > 0 ? rawReviews : null,
       reviewSentiment,
-      projectionData,
     };
 
     log('step6', 'Generating AI analysis + first step in parallel');
