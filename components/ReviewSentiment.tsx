@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function ReviewSentiment({ data, businessName }: Props) {
-  const { positivni, negativni, prilika } = data;
+  const { positivni, negativni } = data;
 
   return (
     <section className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -62,19 +62,7 @@ export default function ReviewSentiment({ data, businessName }: Props) {
         </div>
       </div>
 
-      {prilika && (
-        <div className="bg-amber-50 border-t border-amber-200 px-4 sm:px-6 py-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-800 text-xs font-bold">
-              →
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1">Najveća prilika</p>
-              <p className="text-slate-800 text-sm leading-relaxed">{prilika}</p>
-            </div>
-          </div>
-        </div>
-      )}
+
     </section>
   );
 }

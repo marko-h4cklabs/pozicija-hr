@@ -42,7 +42,7 @@ export interface PlaceReview {
 export interface ReviewSentiment {
   positivni: string[];
   negativni: string[];
-  prilika: string;
+  prilika?: string;
 }
 
 

@@ -39,7 +39,9 @@ const SYSTEM_PROMPT =
   `- If a sentence sounds like something a consultant would say in a presentation, rewrite it as something you would say at a kitchen table.\n` +
   `- Concrete and specific always beats abstract and general. 'Pućo ima 198 recenzija, vi imate 65' beats 'postoji značajan jaz u digitalnom kredibilitetu'.\n` +
   `- When giving advice, sound like you noticed something and are sharing it as a friend, not prescribing it as an expert. 'Primijetili smo da...' not 'Preporučujemo implementaciju...'.\n` +
-  `- If you need a comma to hold a sentence together, split it into two sentences instead.`;
+  `- If you need a comma to hold a sentence together, split it into two sentences instead.\n` +
+  `- NEVER use the subject business's name mid-sentence in the analysis body. Use 'kod vas', 'vaša firma', 'vi' instead. The business name may appear only in section headers or the very first word of the opening sentence — never embedded in a sentence like 'PVC i ALU stolarija eurookna trenutno propušta...'. Write 'kod vas trenutno propušta...' instead.\n` +
+  `- Always write in first-person singular, never plural: 'Primijetio sam', 'Moja analiza', 'sam prikupio' — never 'smo', 'naša', 'primijetili smo'.`;
 
 // Strips markdown formatting and removes any non-Croatian/non-Latin unicode characters
 // that can appear as garbled output (e.g. CJK characters from model hallucinations)
@@ -127,13 +129,14 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
 
   const prompt =
     `Ti si iskusni konzultant za digitalni marketing koji je upravo završio analizu za klijenta. ` +
-    `Pišeš osobno, kao da sjediš nasuprot njima uz kavu i daješ im iskrenu procjenu. ` +
+    `Pišeš osobno, u prvom licu jednine, kao da sjediš nasuprot klijentu uz kavu i daješ mu iskrenu procjenu. ` +
+    `Koristi "Primijetio sam", "Moja analiza pokazuje", "Prema podacima koje sam prikupio", "Kada sam usporedio" — nikad množinu (ne "smo", "naša", "primijetili smo"). ` +
     `Podaci koje si prikupio:\n\n${dataJson}\n\n` +
     `KONTEKST ZA TON: Ako su financijski podaci dostupni, prilagodi ton — tvrtka s rastom prihoda i visokim bonitetom (AA+, AA) ima VIŠE kapaciteta za ulaganje i VIŠE za izgubiti od stagnirajuće. Rastući biznis s dobrim bonitetom = jači poziv na akciju i veća urgentnost.\n\n` +
     `AKO POSTOJE reviewThemes: U sekciji ŠTO BI ODMAH TREBALI NAPRAVITI, koristi konkretan jezik iz recenzija klijenata. Ako postoji opportunity polje, to je točno onaj jaz koji treba adresirati. Citiraj ili parafrziraj stvarni jezik recenzija — to je puno uvjerljivije od generičkih preporuka.\n\n` +
     `PRAVILA PISANJA (strogo ih se drži):\n` +
     `- Piši na hrvatskom jeziku\n` +
-    `- Piši u prvom licu množine: "Primijetili smo...", "Naša analiza pokazuje...", "Prema podacima koje smo prikupili...", "Kada smo usporedili..."\n` +
+    `- Piši u prvom licu jednine: "Primijetio sam...", "Moja analiza pokazuje...", "Prema podacima koje sam prikupio...", "Kada sam usporedio..."\n` +
     `- NIKADA ne koristiti bullet pointove, crtice (- ili *) ili simbole (•) za nabrajanje. Sve piši kao tekuće rečenice.\n` +
     `- NIKADA ne koristiti dvostruke crtice (--). Restructuriraj rečenicu.\n` +
     `- ZABRANJENE RIJEČI — nikad ne koristi: 'optimizirati', 'optimizirana', 'implementirati', 'leveragirati', 'maksimizirati', 'skalirati', 'exploitirati', 'konverzija', 'strategija', 'digitalni kanal', 'GBP stranica', 'automatska tražnja'\n` +
@@ -141,14 +144,15 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `- Nikad ne miješaj engleski poslovni žargon u hrvatske rečenice\n` +
     `- Kratke rečenice. Jedna ideja po rečenici. Ako trebaš zarez da držiš rečenicu zajedno, razbij je na dvije.\n` +
     `- Konkretno uvijek pobjeđuje apstraktno: 'Pućo ima 198 recenzija, vi imate 65' pobjeđuje 'postoji značajan jaz u kredibilitetu'\n` +
-    `- Uvijek koristi stvarne brojeve iz podataka i stvarna imena konkurenata\n` +
+    `- Uvijek koristi stvarne brojeve iz podataka i stvarna imena KONKURENATA\n` +
+    `- IME SUBJEKTA (klijenta) nikad ne koristi usred rečenice u analizi. Umjesto toga koristi 'kod vas', 'vaša firma', 'vi'. Puno ime tvrtke smije se pojaviti samo u naslovima ili na početku prvog dijela — nikad u sredini rečenice analize.\n` +
     `- Maksimalno 3 rečenice po sekciji. Direktno i konkretno.\n` +
     `- NIKADA ne spominji iznose za oglašavanje ili budžete\n` +
     `- PRAVILO O RECENZIJAMA: Analiziraj i spominji recenzije SAMO ako tvrtka ima MANJE od 50 recenzija. ` +
     `Ako ima 50 ili više recenzija, ne komentariraj recenzije uopće i fokusiraj se na druge slabosti.\n\n` +
     `Napiši analizu s TOČNO ovim naslovima sekcija (naslov na zasebnom retku, iza kojeg slijedi tekst):\n\n` +
     `PROCJENA IZGUBLJENOG PRIHODA\n` +
-    `Počni s "Prema našoj analizi, [naziv tvrtke]...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
+    `Počni s "Prema mojoj analizi, kod vas...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
     `bazirano na razlici u rezultatima i industriji. 2 rečenice.\n\n` +
     `ŠTO BI ODMAH TREBALI NAPRAVITI\n` +
     `Navedi tri konkretna koraka u tekućem tekstu bez nabrajanja. PRAVILA ZA OVU SEKCIJU:\n` +
@@ -306,13 +310,11 @@ export async function generateReviewSentiment(
     `Vrati ISKLJUČIVO validan JSON (bez ikakvog drugog teksta, bez markdown, samo JSON):\n` +
     `{\n` +
     `  "positivni": ["tema 1", "tema 2", "tema 3"],\n` +
-    `  "negativni": ["tema 1", "tema 2"],\n` +
-    `  "prilika": "Jedna konkretna, akcijski orijentirana uvid na hrvatskom o jazu između onoga što klijenti žele i onoga što dobivaju. Maksimalno 2 rečenice. Budi specifičan prema stvarnim recenzijama."\n` +
+    `  "negativni": ["tema 1", "tema 2"]\n` +
     `}\n\n` +
     `Pravila:\n` +
-    `- positivni: što klijenti ponavljaju u pohvalama (3 teme)\n` +
-    `- negativni: prigovori ili ono što nedostaje (2 teme). Ako nema negativnih recenzija, što je UPEČATLJIVO ODSUTNO iz pohvala — to je skriveni jaz\n` +
-    `- prilika: referenciraj stvarni jezik recenzija, budi konkretan o niši i gradu`;
+    `- positivni: što klijenti ponavljaju u pohvalama (3 teme, kratke fraze)\n` +
+    `- negativni: prigovori ili ono što nedostaje (2 teme, kratke fraze). Ako nema negativnih recenzija, što je UPEČATLJIVO ODSUTNO iz pohvala — to je skriveni jaz`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -341,13 +343,12 @@ export async function generateReviewSentiment(
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]) as ReviewSentiment;
-    if (!Array.isArray(parsed.positivni) || !parsed.prilika) return null;
+    if (!Array.isArray(parsed.positivni)) return null;
 
     console.log('[Claude] sentiment generated, themes:', parsed.positivni.length, '+', (parsed.negativni ?? []).length);
     return {
       positivni: parsed.positivni.slice(0, 3),
       negativni: (parsed.negativni ?? []).slice(0, 2),
-      prilika: parsed.prilika,
     };
   } catch (e) {
     console.warn('[Claude/sentiment] failed:', e instanceof Error ? e.message : e);
