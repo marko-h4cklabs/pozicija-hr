@@ -4,10 +4,12 @@ import { generateSlug } from '@/lib/slugify';
 import {
   searchBusiness,
   getPlaceDetails,
+  getPlaceReviews,
 } from '@/lib/places';
 import { checkGoogleAds, checkHasCta } from '@/lib/ads';
-import { generateAiAnalysis, generateFirstStepRecommendation } from '@/lib/claude';
+import { generateAiAnalysis, generateFirstStepRecommendation, generateReviewSentiment } from '@/lib/claude';
 import { calcCredibilityScore } from '@/lib/scoring';
+import { calcProjectionData } from '@/lib/projection';
 import { BusinessData, ScoredBusiness, ReportData, ManualCompetitor } from '@/types';
 
 function log(step: string, msg: string, data?: unknown) {
@@ -215,10 +217,12 @@ export async function POST(req: NextRequest) {
 
     const hasSsl: boolean | null = business_url ? business_url.startsWith('https://') : null;
 
-    const [googleAdsResults, ctaResult] = await Promise.all([
+    const [googleAdsResults, ctaResult, rawReviews] = await Promise.all([
       Promise.all(allNames.map((name) => checkGoogleAds(name))),
       allWebsites[0] ? checkHasCta(allWebsites[0]) : Promise.resolve(null),
+      subjectPlaceId ? getPlaceReviews(subjectPlaceId) : Promise.resolve([]),
     ]);
+    log('step4', `Reviews fetched: ${rawReviews.length}`);
 
     allNames.forEach((name, i) =>
       log('step4', `${name}: google=${googleAdsResults[i]}`)
@@ -243,6 +247,16 @@ export async function POST(req: NextRequest) {
     log('step5', 'Subject:', { name: subject.name, totalScore: subject.totalScore });
     competitors.forEach((c, i) => log('step5', `Competitor ${i + 1}:`, { name: c.name, totalScore: c.totalScore }));
 
+    // ── Step 5.5: Review sentiment ───────────────────────────────────────────
+    const reviewSentiment = rawReviews.length >= 3
+      ? await generateReviewSentiment(rawReviews, business_name, business_niche)
+      : null;
+    log('step5', `Review sentiment: ${reviewSentiment ? 'generated' : 'skipped'}`);
+
+    // ── Step 5.6: Projection data (pure math) ────────────────────────────────
+    const projectionData = calcProjectionData(subject, competitors, business_niche);
+    log('step5', `Projection: gapGrowth=${projectionData?.gapGrowth ?? 'N/A'}`);
+
     // ── Step 6: AI analysis ──────────────────────────────────────────────────
     const reportData: ReportData = {
       subject,
@@ -261,6 +275,9 @@ export async function POST(req: NextRequest) {
       revenueGrowth: revenue_growth ?? null,
       financialHistory: financial_history ?? null,
       foundedYear: founded_year ?? null,
+      reviews: rawReviews.length > 0 ? rawReviews : null,
+      reviewSentiment,
+      projectionData,
     };
 
     log('step6', 'Generating AI analysis + first step in parallel');

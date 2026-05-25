@@ -11,7 +11,10 @@ const C = {
   green: '#16a34a',
   red: '#dc2626',
   redLight: '#fca5a5',
-slate50: '#f8fafc',
+  maroon: '#2a0a0a',
+  maroonMid: '#3d1010',
+  maroonLight: '#5a1a1a',
+  slate50: '#f8fafc',
   slate100: '#f1f5f9',
   slate200: '#e2e8f0',
   slate400: '#94a3b8',
@@ -139,7 +142,7 @@ interface Props {
 }
 
 export function ReportPDF({ report }: Props) {
-  const { subject, competitors, aiAnalysis } = report.report_data;
+  const { subject, competitors, aiAnalysis, projectionData, reviewSentiment } = report.report_data;
   const all = [subject, ...competitors];
   const color = resolveScoreColor(subject.totalScore);
   const label = getScoreLabel(subject.totalScore);
@@ -277,6 +280,89 @@ export function ReportPDF({ report }: Props) {
               </View>
             </View>
           </View>
+
+          {/* Nothing Changes — Projection */}
+          {projectionData && (
+            <View style={[s.section, { marginBottom: 20 }]}>
+              <Text style={s.sectionTitle}>Ako se ništa ne promijeni</Text>
+              <View style={{ backgroundColor: C.maroon, borderRadius: 5, overflow: 'hidden' }}>
+                <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
+                  <Text style={{ color: '#f87171', fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 1 }}>PROJEKCIJA</Text>
+                  <Text style={{ color: C.white, fontSize: 11, fontFamily: 'Helvetica-Bold', marginTop: 2, marginBottom: 2 }}>
+                    Rast recenzija sljedećih 6 mjeseci bez akcije
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 2, paddingHorizontal: 12, paddingBottom: 8 }}>
+                  {[
+                    { label: 'Danas', sub: projectionData.subject.current, comp: projectionData.topCompetitor.current },
+                    { label: 'Za 3 mj.', sub: projectionData.subject.in3m, comp: projectionData.topCompetitor.in3m },
+                    { label: 'Za 6 mj.', sub: projectionData.subject.in6m, comp: projectionData.topCompetitor.in6m },
+                  ].map(({ label, sub, comp }) => (
+                    <View key={label} style={{ flex: 1, backgroundColor: C.maroonMid, borderRadius: 4, padding: 7, marginRight: 4 }}>
+                      <Text style={{ color: '#fca5a5', fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 4 }}>{label}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <Text style={{ color: '#fecaca', fontSize: 7 }}>Vi</Text>
+                        <Text style={{ color: C.white, fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{sub.toLocaleString('hr-HR')}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#fecaca', fontSize: 7 }}>Konk.</Text>
+                        <Text style={{ color: '#f87171', fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{comp.toLocaleString('hr-HR')}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10, gap: 4 }}>
+                  <View style={{ flex: 1, backgroundColor: C.maroonMid, borderRadius: 4, padding: 7, marginRight: 4 }}>
+                    <Text style={{ color: '#fca5a5', fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 2 }}>ZAOSTATAK ĆE NARASTI ZA</Text>
+                    <Text style={{ color: '#f87171', fontSize: 14, fontFamily: 'Helvetica-Bold' }}>
+                      +{projectionData.gapGrowth.toLocaleString('hr-HR')} recenzija
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: C.maroonMid, borderRadius: 4, padding: 7 }}>
+                    <Text style={{ color: '#fca5a5', fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 2 }}>GUBITAK TRŽIŠNOG UDJELA</Text>
+                    <Text style={{ color: '#f87171', fontSize: 14, fontFamily: 'Helvetica-Bold' }}>
+                      {projectionData.marketShareLossMin}–{projectionData.marketShareLossMax} %
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Review Sentiment */}
+          {reviewSentiment && (
+            <View style={[s.section, { marginBottom: 20 }]}>
+              <Text style={s.sectionTitle}>Glas vaših klijenata</Text>
+              <View style={{ borderWidth: 1, borderColor: C.slate200, borderRadius: 5, overflow: 'hidden' }}>
+                <View style={{ backgroundColor: C.slate100, paddingHorizontal: 10, paddingVertical: 7 }}>
+                  <Text style={{ fontSize: 8, color: C.slate600 }}>Analiza recenzija — što klijenti govore</Text>
+                </View>
+                <View style={{ flexDirection: 'row' }}>
+                  <View style={{ flex: 1, padding: 10, borderRightWidth: 1, borderRightColor: C.slate200 }}>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#16a34a', letterSpacing: 0.5, marginBottom: 5 }}>ŠTO HVALE</Text>
+                    {reviewSentiment.positivni.map((item, i) => (
+                      <Text key={i} style={{ fontSize: 8, color: C.slate700, marginBottom: 3 }}>• {item}</Text>
+                    ))}
+                  </View>
+                  <View style={{ flex: 1, padding: 10 }}>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.red, letterSpacing: 0.5, marginBottom: 5 }}>NA ŠTO SE ŽALE</Text>
+                    {reviewSentiment.negativni.length > 0
+                      ? reviewSentiment.negativni.map((item, i) => (
+                          <Text key={i} style={{ fontSize: 8, color: C.slate700, marginBottom: 3 }}>• {item}</Text>
+                        ))
+                      : <Text style={{ fontSize: 8, color: C.slate400, fontStyle: 'italic' }}>Nema pritužbi</Text>
+                    }
+                  </View>
+                </View>
+                {reviewSentiment.prilika && (
+                  <View style={{ backgroundColor: '#fffbeb', borderTopWidth: 1, borderTopColor: '#fde68a', padding: 10 }}>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#92400e', letterSpacing: 0.5, marginBottom: 3 }}>NAJVEĆA PRILIKA</Text>
+                    <Text style={{ fontSize: 8.5, color: C.slate700, lineHeight: 1.4 }}>{reviewSentiment.prilika}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
 
           {/* Revenue Gap */}
           {monthlyStr && annualStr && (

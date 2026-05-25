@@ -1,19 +1,18 @@
-import { ReportData, FirstStepRecommendation } from '@/types';
+import { ReportData, FirstStepRecommendation, ReviewSentiment, PlaceReview } from '@/types';
 import { MARKETING_KNOWLEDGE_BASE } from '@/lib/knowledge-base';
 
 const SYSTEM_PROMPT =
-  `You are Marko's private marketing intelligence system. ` +
-  `You have deep expertise in digital marketing for Croatian and Balkan businesses. ` +
-  `You operate from Marko's complete marketing methodology — the knowledge base below. ` +
-  `Apply it to every analysis you generate.\n\n` +
+  `You are Marko's private marketing intelligence system for Croatian businesses. ` +
+  `You operate from the Complete Strategic Marketing Operating System below. ` +
+  `Apply the full framework — not just surface observations.\n\n` +
   `${MARKETING_KNOWLEDGE_BASE}\n\n` +
-  `When generating analysis:\n` +
-  `- Apply THREE THRESHOLDS framework (Desire/Value, Certainty, Trust) to identify where the business is weakest\n` +
-  `- Apply FUNNEL TRIAGE logic (Ad CTR → Landing Page → Close Rate) to pinpoint where they're losing customers\n` +
-  `- Apply PROJECT SELECTION logic to identify the single highest-ROI first move\n` +
-  `- Apply PROJECT MATH to frame everything in their actual money (customer value × volume = ROI)\n` +
-  `- Reference their SPECIFIC competitors by name, with their real numbers\n` +
-  `- Write like a smart peer who knows marketing, not a corporate consultant`;
+  `MANDATORY FRAMEWORK APPLICATION — before writing any section, run these four steps internally:\n` +
+  `1. AWARENESS GRID: Identify where the business's potential customers are (Unaware/Problem/Solution/Product aware) AND their attention type (Passive/Active). Most Croatian local businesses face Solution Aware + Active customers.\n` +
+  `2. WEAKEST THRESHOLD: Identify the weakest of the three thresholds: Trust (low reviews, no social proof), Certainty (no proof of results), or Desire (weak positioning). Businesses with few reviews are almost always weakest on Trust.\n` +
+  `3. FUNNEL TRIAGE: Is their funnel broken at top (not found), middle (found but not chosen), or bottom (visited but no action)?\n` +
+  `4. WWP: Apply the Winner's Writing Process — map Q1 (who), Q2 (where they are now), Q3 (the one action), Q4 (mental steps), Q5 (triggers) — to structure the recommendation.\n` +
+  `5. CUSTOMER LANGUAGE: If reviewThemes data is present, reference the actual words customers use. Mirror their language. Positive themes confirm strengths. Negative themes and opportunity reveal the exact gap to capitalize on.\n\n` +
+  `Write like a smart peer who knows marketing, not a corporate consultant.`;
 
 // Strips markdown formatting and removes any non-Croatian/non-Latin unicode characters
 // that can appear as garbled output (e.g. CJK characters from model hallucinations)
@@ -85,6 +84,15 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
             })),
           }
         : {}),
+      ...(reportData.reviewSentiment
+        ? {
+            reviewThemes: {
+              positive: reportData.reviewSentiment.positivni,
+              negative: reportData.reviewSentiment.negativni,
+              opportunity: reportData.reviewSentiment.prilika,
+            },
+          }
+        : {}),
     },
     null,
     2
@@ -95,6 +103,7 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `Pišeš osobno, kao da sjediš nasuprot njima uz kavu i daješ im iskrenu procjenu. ` +
     `Podaci koje si prikupio:\n\n${dataJson}\n\n` +
     `KONTEKST ZA TON: Ako su financijski podaci dostupni, prilagodi ton — tvrtka s rastom prihoda i visokim bonitetom (AA+, AA) ima VIŠE kapaciteta za ulaganje i VIŠE za izgubiti od stagnirajuće. Rastući biznis s dobrim bonitetom = jači poziv na akciju i veća urgentnost.\n\n` +
+    `AKO POSTOJE reviewThemes: U sekciji ŠTO BI ODMAH TREBALI NAPRAVITI, koristi konkretan jezik iz recenzija klijenata. Ako postoji opportunity polje, to je točno onaj jaz koji treba adresirati. Citiraj ili parafrziraj stvarni jezik recenzija — to je puno uvjerljivije od generičkih preporuka.\n\n` +
     `PRAVILA PISANJA (strogo ih se drži):\n` +
     `- Piši na hrvatskom jeziku\n` +
     `- Piši u prvom licu množine: "Primijetili smo...", "Naša analiza pokazuje...", "Prema podacima koje smo prikupili...", "Kada smo usporedili..."\n` +
@@ -244,6 +253,74 @@ export async function generateFirstStepRecommendation(
     return parsed;
   } catch (e) {
     console.warn('[Claude/firstStep] failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+export async function generateReviewSentiment(
+  reviews: PlaceReview[],
+  businessName: string,
+  niche: string,
+): Promise<ReviewSentiment | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || reviews.length < 3) return null;
+
+  const reviewText = reviews
+    .filter(r => r.text.trim())
+    .map(r => `Rating: ${r.rating}/5 — "${r.text}"`)
+    .join('\n');
+
+  const prompt =
+    `Analiziraj ove Google recenzije za ${businessName} (${niche}).\n\n` +
+    `Recenzije:\n${reviewText}\n\n` +
+    `Vrati ISKLJUČIVO validan JSON (bez ikakvog drugog teksta, bez markdown, samo JSON):\n` +
+    `{\n` +
+    `  "positivni": ["tema 1", "tema 2", "tema 3"],\n` +
+    `  "negativni": ["tema 1", "tema 2"],\n` +
+    `  "prilika": "Jedna konkretna, akcijski orijentirana uvid na hrvatskom o jazu između onoga što klijenti žele i onoga što dobivaju. Maksimalno 2 rečenice. Budi specifičan prema stvarnim recenzijama."\n` +
+    `}\n\n` +
+    `Pravila:\n` +
+    `- positivni: što klijenti ponavljaju u pohvalama (3 teme)\n` +
+    `- negativni: prigovori ili ono što nedostaje (2 teme). Ako nema negativnih recenzija, što je UPEČATLJIVO ODSUTNO iz pohvala — to je skriveni jaz\n` +
+    `- prilika: referenciraj stvarni jezik recenzija, budi konkretan o niši i gradu`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    const data = await res.json();
+    if (data.error) {
+      console.warn('[Claude/sentiment] API error:', data.error);
+      return null;
+    }
+
+    const raw: string = data.content?.[0]?.text?.trim() ?? '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]) as ReviewSentiment;
+    if (!Array.isArray(parsed.positivni) || !parsed.prilika) return null;
+
+    console.log('[Claude] sentiment generated, themes:', parsed.positivni.length, '+', (parsed.negativni ?? []).length);
+    return {
+      positivni: parsed.positivni.slice(0, 3),
+      negativni: (parsed.negativni ?? []).slice(0, 2),
+      prilika: parsed.prilika,
+    };
+  } catch (e) {
+    console.warn('[Claude/sentiment] failed:', e instanceof Error ? e.message : e);
     return null;
   }
 }

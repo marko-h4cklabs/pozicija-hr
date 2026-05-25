@@ -1,4 +1,4 @@
-import { BusinessData } from '@/types';
+import { BusinessData, PlaceReview } from '@/types';
 
 const PLACES_BASE = 'https://places.googleapis.com/v1';
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY!;
@@ -95,6 +95,34 @@ export async function searchBusiness(
 
   console.log(`[Places] all attempts failed for: "${name}" in "${city}"`);
   return { placeId: null, query: q1, rawResponse: null };
+}
+
+export async function getPlaceReviews(placeId: string): Promise<PlaceReview[]> {
+  const url = `${PLACES_BASE}/places/${placeId}`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'X-Goog-Api-Key': API_KEY,
+        'X-Goog-FieldMask': 'reviews',
+      },
+    });
+    const data = await res.json();
+    const raw = (data.reviews ?? []) as Array<{
+      rating?: number;
+      text?: { text?: string } | string;
+      relativePublishTimeDescription?: string;
+    }>;
+    return raw
+      .map(r => ({
+        rating: r.rating ?? 0,
+        text: typeof r.text === 'string' ? r.text : (r.text?.text ?? ''),
+        relativePublishTimeDescription: r.relativePublishTimeDescription ?? '',
+      }))
+      .filter(r => r.text.trim().length > 0);
+  } catch (e) {
+    console.warn('[Places] getPlaceReviews failed:', e instanceof Error ? e.message : e);
+    return [];
+  }
 }
 
 export async function searchCompetitors(

@@ -33,6 +33,33 @@ export interface FirstStepRecommendation {
   timeline: string;
 }
 
+export interface PlaceReview {
+  rating: number;
+  text: string;
+  relativePublishTimeDescription: string;
+}
+
+export interface ReviewSentiment {
+  positivni: string[];
+  negativni: string[];
+  prilika: string;
+}
+
+export interface BusinessProjection {
+  name: string;
+  current: number;
+  in3m: number;
+  in6m: number;
+}
+
+export interface ProjectionData {
+  subject: BusinessProjection;
+  topCompetitor: BusinessProjection;
+  gapGrowth: number;
+  marketShareLossMin: number;
+  marketShareLossMax: number;
+}
+
 export interface ReportData {
   subject: ScoredBusiness;
   competitors: ScoredBusiness[];
@@ -51,6 +78,9 @@ export interface ReportData {
   revenueGrowth?: number | null;
   financialHistory?: FinancialYear[] | null;
   foundedYear?: string | null;
+  reviews?: PlaceReview[] | null;
+  reviewSentiment?: ReviewSentiment | null;
+  projectionData?: ProjectionData | null;
 }
 
 export interface Report {

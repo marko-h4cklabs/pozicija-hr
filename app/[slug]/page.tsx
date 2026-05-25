@@ -5,6 +5,8 @@ import { trackOpen } from '@/lib/tracking';
 import Navbar from '@/components/Navbar';
 import ScoreBadge from '@/components/ScoreBadge';
 import ComparisonTable from '@/components/ComparisonTable';
+import NothingChanges from '@/components/NothingChanges';
+import ReviewSentiment from '@/components/ReviewSentiment';
 import AiAnalysis from '@/components/AiAnalysis';
 import IntroVideo from '@/components/IntroVideo';
 import RevenueGap from '@/components/RevenueGap';
@@ -55,7 +57,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
     );
   }
 
-  const { subject, competitors, aiAnalysis, firstStep } = report.report_data;
+  const { subject, competitors, aiAnalysis, firstStep, projectionData, reviewSentiment } = report.report_data;
   const introVideoUrl = process.env.NEXT_PUBLIC_INTRO_VIDEO_URL;
 
   return (
@@ -83,6 +85,12 @@ export default async function ReportPage({ params, searchParams }: Props) {
               />
             </div>
           </section>
+
+          {projectionData && <NothingChanges data={projectionData} />}
+
+          {reviewSentiment && (
+            <ReviewSentiment data={reviewSentiment} businessName={report.business_name} />
+          )}
 
           <RevenueGap
             subject={subject}
