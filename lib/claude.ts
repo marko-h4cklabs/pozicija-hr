@@ -6,12 +6,23 @@ const SYSTEM_PROMPT =
   `You operate from the Complete Strategic Marketing Operating System below. ` +
   `Apply the full framework — not just surface observations.\n\n` +
   `${MARKETING_KNOWLEDGE_BASE}\n\n` +
-  `MANDATORY FRAMEWORK APPLICATION — before writing any section, run these four steps internally:\n` +
+  `MANDATORY FRAMEWORK APPLICATION — before writing any section, run these steps internally:\n` +
   `1. AWARENESS GRID: Identify where the business's potential customers are (Unaware/Problem/Solution/Product aware) AND their attention type (Passive/Active). Most Croatian local businesses face Solution Aware + Active customers.\n` +
   `2. WEAKEST THRESHOLD: Identify the weakest of the three thresholds: Trust (low reviews, no social proof), Certainty (no proof of results), or Desire (weak positioning). Businesses with few reviews are almost always weakest on Trust.\n` +
   `3. FUNNEL TRIAGE: Is their funnel broken at top (not found), middle (found but not chosen), or bottom (visited but no action)?\n` +
   `4. WWP: Apply the Winner's Writing Process — map Q1 (who), Q2 (where they are now), Q3 (the one action), Q4 (mental steps), Q5 (triggers) — to structure the recommendation.\n` +
   `5. CUSTOMER LANGUAGE: If reviewThemes data is present, reference the actual words customers use. Mirror their language. Positive themes confirm strengths. Negative themes and opportunity reveal the exact gap to capitalize on.\n\n` +
+  `FORBIDDEN WORDS AND TOPICS — never use these terms under any circumstances:\n` +
+  `'web stranica', 'optimizacija web stranice', 'nova web stranica', 'redizajn', 'landing page'.\n` +
+  `These sound like every generic agency. If website issues exist, refer to them only as 'digitalni ulaz za klijente' or 'prva točka kontakta' — never 'web stranica'.\n\n` +
+  `PREFERRED ANGLES — always consider these before anything else. These are the angles no Croatian agency ever mentions:\n` +
+  `1. GOOGLE BUSINESS PROFILE DEPTH: Not just 'you have few reviews' — look for specific gaps: missing service categories, no Q&A section populated, no weekly Google posts, photo count vs competitors (businesses with 100+ photos get 42% more direction requests), response rate to existing reviews (responding within 24h significantly increases trust score).\n` +
+  `2. REVIEW VELOCITY, NOT JUST COUNT: Recency matters more than total count for Google's local ranking algorithm. A business with 15 reviews from last month outranks one with 200 reviews from 3 years ago. Mention this specifically when review count gaps exist.\n` +
+  `3. SPEED TO LEAD: Research shows 78% of local service customers hire the first business that responds. A business without an automated response system loses customers who inquired and waited too long. This is a concrete, fixable problem.\n` +
+  `4. GEO/AEO — AI SEARCH VISIBILITY: When someone asks ChatGPT or Google AI 'koji je najbolji [niche] u [city]', which businesses appear? Businesses without structured data and consistent online presence are invisible in AI search — a channel growing 40% year over year. No Croatian competitor is thinking about this yet — this is a first-mover advantage.\n` +
+  `5. LOCAL SEARCH INTENT GAPS: What specific service keywords exist in their niche where competitors rank and they do not — not generic keywords but hyper-local intent like 'hitna popravka [usluga] [grad]' or '[usluga] vikend [grad]'.\n` +
+  `6. WHATSAPP BUSINESS INTEGRATION: Croatian customers increasingly prefer WhatsApp for first contact. Businesses without WhatsApp Business (with automated greeting, away message, quick replies) lose leads who send a message and get silence.\n` +
+  `7. COMPETITOR WEAKNESS EXPLOITATION: Find the ONE specific thing the top competitor does NOT have that this business could own first. If a competitor has 225 reviews but no video content, no Q&A section, and takes 3 days to respond to reviews — those are three concrete angles to exploit. Always name the competitor specifically.\n\n` +
   `Write like a smart peer who knows marketing, not a corporate consultant.`;
 
 // Strips markdown formatting and removes any non-Croatian/non-Latin unicode characters
@@ -122,12 +133,12 @@ export async function generateAiAnalysis(reportData: ReportData): Promise<string
     `Počni s "Prema našoj analizi, [naziv tvrtke]...". Daj konkretan EUR raspon koji propuštaju mjesečno i godišnje, ` +
     `bazirano na razlici u rezultatima i industriji. 2 rečenice.\n\n` +
     `ŠTO BI ODMAH TREBALI NAPRAVITI\n` +
-    `Navedi tri konkretna koraka TOČNO ovim redoslijedom prioriteta, u tekućem tekstu bez nabrajanja:\n` +
-    `  PRVO: uvijek web stranica / landing page (brzina, CTA, mobilna verzija)\n` +
-    `  DRUGO: recenzije i Google prisutnost — ALI SAMO ako tvrtka ima MANJE od 50 recenzija. ` +
-    `Ako ima 50 ili više recenzija, preskočite ovaj korak i idite na sljedeći prioritet\n` +
-    `  TREĆE: plaćeno oglašavanje (Google Ads ili Meta Ads)\n` +
-    `Nikad ne mijenjaj ovaj redoslijed. Dodaj vremenski pritisak gdje je moguće. Bez iznosa i budžeta. 2-3 rečenice.`;
+    `Navedi tri konkretna koraka u tekućem tekstu bez nabrajanja. PRAVILA ZA OVU SEKCIJU:\n` +
+    `- PRVI korak NIKAD ne smije biti o web stranici. Odaberi iz preferiranih kutova: Google Business Profile dubina, brzina recenzija, WhatsApp Business, brzina odgovora na upite, ili konkretna slabost top konkurenta.\n` +
+    `- Koristi specifične brojeve i vremenske okvire. Primjer: "U roku od 30 dana može se prikupiti 20+ novih recenzija kroz automatizirani follow-up sustav."\n` +
+    `- Navedi konkretne slabosti konkurenata po imenu. Primjer: "Niti jedan vaš konkurent trenutno ne odgovara na recenzije — ovo je vaša prilika da se istaknete."\n` +
+    `- Jedan od tri koraka mora uključiti GEO/AEO prilikу: "Dok vaša konkurencija zanemaruje AI tražilice, vi možete biti prvi u vašoj niši koji se pojavljuje kada netko pita ChatGPT za [niša] u [grad]."\n` +
+    `- Bez iznosa i budžeta. 2-3 rečenice ukupno.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -206,7 +217,7 @@ export async function generateFirstStepRecommendation(
     `Podaci:\n${dataJson}\n\n` +
     `JSON format koji moraš vratiti (točno ova 4 ključa):\n` +
     `{\n` +
-    `  "project": "Kratki naziv projekta (npr. Google recenzije, Google Search Ads, Landing stranica)",\n` +
+    `  "project": "Kratki naziv projekta (npr. Google recenzije, Google Business Profile, WhatsApp Business, GEO/AEO vidljivost)",\n` +
     `  "reasoning": "2 rečenice zašto OVO, s pravim brojevima i imenom konkurenta",\n` +
     `  "outcome": "Konkretan mjerljiv rezultat u EUR ili leadovima (npr. +8 upita/mj = 3.200 EUR/mj)",\n` +
     `  "timeline": "Realan vremenski okvir (npr. Vidljivi rezultati za 30 dana)"\n` +
